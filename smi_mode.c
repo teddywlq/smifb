@@ -1452,8 +1452,8 @@ int smi_modeset_init(struct smi_device *cdev)
 	cdev->dev->mode_config.max_height = SMI_MAX_FB_HEIGHT;
 
 	if (g_specId == SPC_SM750) { // limit to maximum size supported+		
-		cdev->dev->mode_config.max_width = 1920;
-		cdev->dev->mode_config.max_height = 1080;
+		cdev->dev->mode_config.max_width = 3840;
+		cdev->dev->mode_config.max_height = 2160;
 		}
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))&& !defined(RHEL_RELEASE_VERSION) )|| \

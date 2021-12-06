@@ -472,13 +472,11 @@ static void smi_plane_cleanup_fb(struct drm_plane *plane, struct drm_plane_state
 
 #endif
 
-static const uint32_t smi_cursor_plane_formats[] = {DRM_FORMAT_RGB565, DRM_FORMAT_BGR565, DRM_FORMAT_ARGB8888};
+static const uint32_t smi_cursor_plane_formats[] = {DRM_FORMAT_RGB565, DRM_FORMAT_ARGB8888};
 
 
-static const uint32_t smi_formats[] = {DRM_FORMAT_RGB565, DRM_FORMAT_BGR565, DRM_FORMAT_RGB888,
-	DRM_FORMAT_BGR888, DRM_FORMAT_XRGB8888, DRM_FORMAT_XBGR8888,
-	DRM_FORMAT_RGBA8888, DRM_FORMAT_BGRA8888, DRM_FORMAT_ARGB8888,
-	DRM_FORMAT_ABGR8888 };
+static const uint32_t smi_formats[] = {DRM_FORMAT_RGB565,DRM_FORMAT_RGB888,
+	DRM_FORMAT_XRGB8888, DRM_FORMAT_RGBA8888, DRM_FORMAT_ARGB8888};
 
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0) ) && !defined(RHEL_RELEASE_VERSION) )|| \
 	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))

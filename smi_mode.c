@@ -203,6 +203,7 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 #else
 	pitch = crtc->fb->pitches[0] ;
 #endif
+	pitch =  (pitch + 15) & ~15;
 	// Known issue: when setting 4K+1080p or 2K+1080p, the total pitch exceeds 4096.
 	// The max pitch SM768's register supports is 4096, the issue will cause screen garbage.
 	{
@@ -1104,12 +1105,6 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 			return MODE_NOMODE;
 	}
 
-
-	if ((mode->hdisplay == 1360) && (mode->vdisplay == 768))
-		return MODE_NOMODE;
-
-	if ((mode->hdisplay == 1366) && (mode->vdisplay == 768))
-		return MODE_NOMODE;
 
 	if(lvds_channel && (!lcd_scale)){
 		if (connector->connector_type == DRM_MODE_CONNECTOR_DVII) {              

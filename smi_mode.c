@@ -440,6 +440,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 
 		smi_crtc_do_set_base(crtc, old_fb, x, y, 0, dst_ctrl);
 		setSingleViewOn(dst_ctrl);
+		initDisplay();		
 		if(need_to_scale)
 			ddk768_setDisplayPlaneDisableOnly(dst_ctrl);
 		

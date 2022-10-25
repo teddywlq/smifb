@@ -1,4 +1,25 @@
 ﻿-+===============================+-
+10/25/2022 Release version 1.3.6.0
+-+===============================+-
+
+1. Changes:
+	1. Add MODULE_VERSION to display the driver version
+	2. Add gamma_set function on SM750
+	3. Fix audio suspend issue
+	4. Enable to set DAC to output stronger signal
+	5. Adjust HDMI phy to improve eye digram on 1080p mode
+
+-+===============================+-
+03/01/2022 Release version 1.3.5.0
+-+===============================+-
+
+1. Changes:
+	1. Fix bug that white screen happens during reboot tests
+	2. Restore 1366x768 and 1360x768 mode.
+	3. Remove compile warning and errors
+   	
+
+-+===============================+-
 03/18/2019 Release version 1.3.0.0
 -+===============================+-
 

@@ -905,10 +905,12 @@ pll_value_t *pPLL               /* Pre-calculated values for the PLL */
     
     hdmi_channel = FIELD_GET(peekRegisterDWord(DISPLAY_CTRL+offset),
                                    DISPLAY_CTRL,
-                                   HDMI_SELECT);    
+                                   HDMI_SELECT);
+	
+	ulTmpValue = peekRegisterDWord(DISPLAY_CTRL+offset);
 
     /* Set control register value */
-    ulTmpValue =       
+    ulTmpValue |=       
         (pModeParam->vertical_sync_polarity == POS
         ? FIELD_SET(0, DISPLAY_CTRL, VSYNC_PHASE, ACTIVE_HIGH)
         : FIELD_SET(0, DISPLAY_CTRL, VSYNC_PHASE, ACTIVE_LOW))

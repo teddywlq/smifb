@@ -337,7 +337,7 @@ static int smi_fbdev_destroy(struct drm_device *dev,
 #endif
 #endif
 	if (gfb->obj) {
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0)&& !defined(RHEL_RELEASE_VERSION)  )
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))
 		drm_gem_object_put_unlocked(gfb->obj);
 #else
 		drm_gem_object_unreference_unlocked(gfb->obj);

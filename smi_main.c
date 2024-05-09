@@ -99,7 +99,7 @@ static void smi_user_framebuffer_destroy(struct drm_framebuffer *fb)
 				if(smi_fb->vmapping)
 					dma_buf_vunmap(smi_fb->obj->import_attach->dmabuf, smi_fb->vmapping);
 		}
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0)&& !defined(RHEL_RELEASE_VERSION)  )
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))
 		drm_gem_object_put_unlocked(smi_fb->obj);
 #else
 		drm_gem_object_unreference_unlocked(smi_fb->obj);
@@ -286,12 +286,13 @@ static int smi_vram_init(struct smi_device *cdev)
 	else
 		cdev->mc.vram_size = ddk768_getFrameBufSize();
 
+#if 0
 	if (!request_mem_region(cdev->mc.vram_base, cdev->mc.vram_size,
 				"smidrmfb_vram")) {
 		DRM_ERROR("can't reserve VRAM\n");
 		return -ENXIO;
 	}
-
+#endif
 	return 0;
 }
 
@@ -382,7 +383,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		return -ENOMEM;
 	dev->dev_private = (void *)cdev;
 
-	pci_enable_device(dev->pdev);
+	r = pci_enable_device(dev->pdev);
 
 	r = smi_device_init(cdev, dev, dev->pdev, flags);
 	if (r) {
@@ -571,7 +572,7 @@ int smi_dumb_create(struct drm_file *file,
 		return ret;
 
 	ret = drm_gem_handle_create(file, gobj, &handle);
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0)&& !defined(RHEL_RELEASE_VERSION)  )
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))
 	drm_gem_object_put_unlocked(gobj);
 #else
 	drm_gem_object_unreference_unlocked(gobj);

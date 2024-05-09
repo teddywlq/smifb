@@ -508,8 +508,8 @@ static int smi_plane_update(struct drm_plane *plane, struct drm_crtc *crtc, stru
 		return drm_primary_helper_update(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h, src_x, src_y, src_w, src_h, ctx);
 	else
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0) ) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION))
+		
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
 		return drm_plane_helper_update(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h, src_x, src_y, src_w, src_h);
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
@@ -544,8 +544,7 @@ static int smi_plane_disable(struct drm_plane *plane, struct drm_modeset_acquire
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 		return drm_primary_helper_disable(plane, ctx);
 	else
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) )
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
 		return drm_plane_helper_disable(plane);
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
 		return drm_plane_helper_disable(plane, ctx);

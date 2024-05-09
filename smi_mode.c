@@ -11,7 +11,7 @@
 #include <drm/drm_crtc_helper.h>
 
 #include "smi_drv.h"
-#include <linux/version.h>
+
 #if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )&& !defined(RHEL_RELEASE_VERSION) ) || \
 	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
 #include <drm/drm_gem.h>
@@ -1489,7 +1489,7 @@ int smi_modeset_init(struct smi_device *cdev)
 			return -1;
 		}
 
-#if ((KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )
+#if ((KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE))
 		drm_connector_attach_encoder(connector, encoder);
 #else
 		drm_mode_connector_attach_encoder(connector, encoder);

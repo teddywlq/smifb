@@ -6,17 +6,15 @@
  * directory of this archive for more details.
  *
  */
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/console.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
-
+#include "smi_drv.h"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
 #include <drm/drm_probe_helper.h>
 #endif
 
-#include "smi_drv.h"
 #include "hw750.h"
 #include "hw768.h"
 

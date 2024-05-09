@@ -10,8 +10,9 @@
 #ifndef __SMI_DRV_H__
 #define __SMI_DRV_H__
 
+#include "smi_ver.h"
+
 #include <video/vga.h>
-#include <linux/version.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_edid.h>
 
@@ -42,11 +43,11 @@
 
 #define DRIVER_NAME		"smifb"
 #define DRIVER_DESC		"SiliconMotion GPU DRM Driver"
-#define DRIVER_DATE		"20220715"
+#define DRIVER_DATE		"20240218"
 
 #define DRIVER_MAJOR		1
 #define DRIVER_MINOR		3
-#define DRIVER_PATCHLEVEL	16
+#define DRIVER_PATCHLEVEL	17
 
 #define SMIFB_CONN_LIMIT 3
 
@@ -56,7 +57,7 @@
 #define SUPPORT_CHIP " \t\tSM750, SM768\n"
 
 
-#define _version_	"1.3.16.0"
+#define _version_	"1.3.17.0"
 
 #undef  NO_WC
 

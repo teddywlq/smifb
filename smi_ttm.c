@@ -351,7 +351,7 @@ int smi_mm_init(struct smi_device *smi)
 		return ret;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0)	
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0) && !defined(RHEL_RELEASE_VERSION))
 	arch_io_reserve_memtype_wc(pci_resource_start(dev->pdev, 0),
 				   pci_resource_len(dev->pdev, 0));
 #endif
@@ -376,7 +376,7 @@ void smi_mm_fini(struct smi_device *smi)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
  	smi_ttm_global_release(smi);
 #endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0) && !defined(RHEL_RELEASE_VERSION))
 	arch_io_free_memtype_wc(pci_resource_start(dev->pdev, 0),
 				pci_resource_len(dev->pdev, 0));
 #endif

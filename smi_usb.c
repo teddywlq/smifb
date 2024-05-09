@@ -3,7 +3,6 @@
 #include <linux/pci.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
-#include <linux/version.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 

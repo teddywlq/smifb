@@ -454,7 +454,7 @@ static struct drm_driver driver = {
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
 #if ((LINUX_VERSION_CODE <= KERNEL_VERSION(3,12,0))&& !defined(RHEL_RELEASE_VERSION)  )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))	
 	.gem_init_object = smi_gem_init_object,
 #endif
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))&& !defined(RHEL_RELEASE_VERSION)  )|| \

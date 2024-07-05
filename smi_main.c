@@ -439,7 +439,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
 	r = drm_irq_install(dev, dev->pdev->irq);
 #else
 	r = drm_irq_install(dev);
@@ -539,7 +539,7 @@ int smi_gem_create(struct drm_device *dev,
 		return -EINVAL;
 
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
 	ret = smi_bo_create(dev, size, 0, 0, NULL, &smibo);
 #else
 	ret = smi_bo_create(dev, size, 0, 0, NULL, NULL, &smibo);
@@ -626,7 +626,7 @@ void smi_gem_free_object(struct drm_gem_object *obj)
 static inline u64 smi_bo_mmap_offset(struct smi_bo *bo)
 {
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
 	return bo->bo.addr_space_offset;
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
 	return drm_vma_node_offset_addr(&bo->bo.vma_node);

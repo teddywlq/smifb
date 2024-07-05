@@ -15,7 +15,7 @@
 #include "hw768.h"
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 #include <drm/drm_plane_helper.h>
 #endif
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
@@ -656,7 +656,7 @@ struct drm_plane *smi_plane_init(struct smi_device *cdev,unsigned int possible_c
 		goto free_plane;
 	
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	drm_plane_helper_add(plane, helper_funcs);
 #endif
 	

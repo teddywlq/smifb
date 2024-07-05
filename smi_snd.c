@@ -722,7 +722,7 @@ int smi_audio_init(struct drm_device *dev)
 		use_wm8978 = 1;
 	
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)&& !defined(RHEL_RELEASE_VERSION) )) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	err = snd_card_new(&pdev->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1, THIS_MODULE, 0, &card); 
 #else
 	err = snd_card_create(-1, 0, THIS_MODULE, 0, &card);	  

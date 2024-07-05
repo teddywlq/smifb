@@ -35,7 +35,7 @@
 #include <drm/ttm/ttm_memory.h>
 #include <drm/ttm/ttm_module.h>
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
 #include <drm/drm_gem.h>
 #endif
 
@@ -258,7 +258,7 @@ struct smi_bo {
 	struct ttm_bo_kmap_obj kmap;
 	struct drm_gem_object gem;
 #if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
 	struct ttm_place placements[3];
 #else
 	u32 placements[3];
@@ -329,7 +329,7 @@ void smi_driver_irq_preinstall(struct drm_device *dev);
 int smi_driver_irq_postinstall(struct drm_device *dev);
 void smi_driver_irq_uninstall(struct drm_device *dev);
 #if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0)		)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))		
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))		
 irqreturn_t smi_driver_irq_handler(int irq, void *arg);
 #else
 irqreturn_t smi_driver_irq_handler(DRM_IRQ_ARGS);
@@ -350,7 +350,7 @@ void smi_mm_fini(struct smi_device *smi);
 void smi_ttm_placement(struct smi_bo *bo, int domain);
 
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))	
 int smi_bo_create(struct drm_device *dev, int size, int align, 
 		  uint32_t flags, struct sg_table *sg, struct smi_bo **psmibo);
 #else

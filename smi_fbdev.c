@@ -382,12 +382,12 @@ int smi_fbdev_init(struct smi_device *cdev)
 
 	cdev->mode_info.gfbdev = gfbdev;
 #if ((KERNEL_VERSION(3, 17, 0) > LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
 	gfbdev->helper.funcs = &smi_fb_helper_funcs;
 #endif	
 	spin_lock_init(&gfbdev->dirty_lock);
 #if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	drm_fb_helper_prepare(cdev->dev, &gfbdev->helper,
 								  &smi_fb_helper_funcs);
 #endif

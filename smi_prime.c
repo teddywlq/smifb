@@ -51,7 +51,7 @@ struct drm_gem_object *smi_gem_prime_import_sg_table(struct drm_device *dev,
 	int ret;
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0) ) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
 	struct reservation_object *resv = attach->dmabuf->resv;
 #else

@@ -143,7 +143,7 @@ static int smi_bo_verify_access(struct ttm_buffer_object *bo, struct file *filp)
 {
 	struct smi_bo *smibo = smi_bo(bo);
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)) && !defined(RHEL_RELEASE_VERSION) ) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
 	return 0;
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0) && (!defined(RHEL_RELEASE_VERSION))
 	return drm_vma_node_verify_access(&smibo->gem.vma_node, filp);
@@ -320,7 +320,7 @@ int smi_mm_init(struct smi_device *smi)
 				 smi->ttm.bo_global_ref.ref.object,
 #endif
 #if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))				 
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))				 
 				 &smi_bo_driver, dev->anon_inode->i_mapping,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,2,0)
 				DRM_FILE_PAGE_OFFSET,
@@ -392,7 +392,7 @@ void smi_ttm_placement(struct smi_bo *bo, int domain)
 {
 	u32 c = 0;
 #if ((KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE)  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
 
 	unsigned i;
 	bo->placement.placement = bo->placements;
@@ -434,7 +434,7 @@ void smi_ttm_placement(struct smi_bo *bo, int domain)
 }
 
 #if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
 int smi_bo_create(struct drm_device *dev, int size, int align,
 		  uint32_t flags, struct sg_table *sg, struct smi_bo **psmibo)
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
@@ -471,7 +471,7 @@ int smi_bo_create(struct drm_device *dev, int size, int align,
 
 	smibo->bo.bdev = &smi->ttm.bdev;
 #if ((LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))	
 	smibo->bo.bdev->dev_mapping = dev->dev_mapping;
 #endif
 	smi_ttm_placement(smibo, TTM_PL_FLAG_VRAM | TTM_PL_FLAG_SYSTEM);
@@ -488,7 +488,7 @@ int smi_bo_create(struct drm_device *dev, int size, int align,
 #endif
 			  acc_size, sg,
 #if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,18,0)) && !defined(RHEL_RELEASE_VERSION) )  || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
 			  resv,
 #endif			   
 			  smi_bo_ttm_destroy);
@@ -526,7 +526,7 @@ int smi_bo_pin(struct smi_bo *bo, u32 pl_flag, u64 *gpu_addr)
 	smi_ttm_placement(bo, pl_flag);
 	for (i = 0; i < bo->placement.num_placement; i++)
 #if ((KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 		bo->placements[i].flags |= TTM_PL_FLAG_NO_EVICT;
 #else
 		bo->placements[i] |= TTM_PL_FLAG_NO_EVICT;
@@ -564,7 +564,7 @@ int smi_bo_unpin(struct smi_bo *bo)
 
 	for (i = 0; i < bo->placement.num_placement ; i++)
 #if ((KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE	)  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 		bo->placements[i].flags &= ~TTM_PL_FLAG_NO_EVICT;
 #else
 		bo->placements[i] &= ~TTM_PL_FLAG_NO_EVICT;
@@ -589,7 +589,7 @@ int smi_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET))
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0) ) && !defined(RHEL_RELEASE_VERSION) )  || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 		return -EINVAL;
 #else
 		return drm_mmap(filp, vma);

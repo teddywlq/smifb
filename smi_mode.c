@@ -13,7 +13,7 @@
 #include "smi_drv.h"
 
 #if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 #include <drm/drm_gem.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_atomic_helper.h>
@@ -170,7 +170,7 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 	}
 
 #if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	smi_fb = to_smi_framebuffer(crtc->primary->fb);
 #else
 	smi_fb = to_smi_framebuffer(crtc->fb);
@@ -193,7 +193,7 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 	smi_bo_unreserve(bo);
 
 #if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0) ) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	pitch = crtc->primary->fb->pitches[0] ;
 #else
 	pitch = crtc->fb->pitches[0] ;
@@ -481,7 +481,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
  }
 
 #if ( (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4) )
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2) )
 	
 #if	((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
 	(defined(RHEL_RELEASE_VERSION)&& RHEL_VERSION_LOWER_THAN(7,5))
@@ -542,7 +542,7 @@ static const struct drm_crtc_funcs smi_crtc_funcs = {
  	.set_config = drm_crtc_helper_set_config,//kernel: deprecated. will be instead of drm_atomic_helper_set_config
 	.destroy = smi_crtc_destroy,
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))	
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
 	.page_flip = smi_crtc_page_flip,
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
@@ -850,6 +850,13 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 }
 
 
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
+void drm_set_preferred_mode(struct drm_connector *connector, int hpref, int vpref) {}
+#endif
+
+
+
 int smi_connector_get_modes(struct drm_connector *connector)
 {
 	int ret = 0, count = 0;
@@ -1099,6 +1106,13 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 	if(mode->hdisplay > 1920) {
 		if ((g_m_connector == USE_DVI_HDMI) || (g_m_connector == USE_VGA_HDMI)||(g_specId == SPC_SM750))
 			return MODE_NOMODE;
+	}
+	
+	if(connector->connector_type == DRM_MODE_CONNECTOR_DVII){
+		if((mode->hdisplay > 1920) || (mode->vdisplay > 1080))
+			return MODE_NOMODE;
+		else
+			return MODE_OK;
 	}
 
 
@@ -1351,7 +1365,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 static void smi_connector_destroy(struct drm_connector *connector)
 {
 #if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	drm_connector_unregister(connector);
 #else
 	drm_sysfs_connector_remove(connector);
@@ -1402,7 +1416,7 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 	connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
 
 #if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	drm_connector_register(connector);
 #else
 	drm_sysfs_connector_add(connector);
@@ -1451,7 +1465,7 @@ int smi_modeset_init(struct smi_device *cdev)
 		}
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
 	cdev->dev->mode_config.cursor_width = 64;
 	cdev->dev->mode_config.cursor_height = 64;
 #endif

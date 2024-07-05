@@ -909,32 +909,36 @@ pll_value_t *pPLL               /* Pre-calculated values for the PLL */
 	
 	ulTmpValue = peekRegisterDWord(DISPLAY_CTRL+offset);
 
-    /* Set control register value */
-    ulTmpValue =       
-        (pModeParam->vertical_sync_polarity == POS
-        ? FIELD_SET(0, DISPLAY_CTRL, VSYNC_PHASE, ACTIVE_HIGH)
-        : FIELD_SET(0, DISPLAY_CTRL, VSYNC_PHASE, ACTIVE_LOW))
-      | (pModeParam->horizontal_sync_polarity == POS
-        ? FIELD_SET(0, DISPLAY_CTRL, HSYNC_PHASE, ACTIVE_HIGH)
-        : FIELD_SET(0, DISPLAY_CTRL, HSYNC_PHASE, ACTIVE_LOW))
-      | (pModeParam->clock_phase_polarity== POS
-        ? FIELD_SET(0, DISPLAY_CTRL, CLOCK_PHASE, ACTIVE_HIGH)
-        : FIELD_SET(0, DISPLAY_CTRL, CLOCK_PHASE, ACTIVE_LOW))
-      | FIELD_SET(0, DISPLAY_CTRL, DATA_PATH, EXTENDED)
-      | FIELD_SET(0, DISPLAY_CTRL, DIRECTION, INPUT)
-      | FIELD_SET(0, DISPLAY_CTRL, TIMING, ENABLE)
-      | FIELD_SET(0, DISPLAY_CTRL, PLANE, ENABLE) 
-      | (pLogicalMode->bpp == 8
-        ? FIELD_SET(0, DISPLAY_CTRL, FORMAT, 8)
-        : (pLogicalMode->bpp == 16
-        ? FIELD_SET(0, DISPLAY_CTRL, FORMAT, 16)
-        : FIELD_SET(0, DISPLAY_CTRL, FORMAT, 32)));
+	/* Set control register value */
+	ulTmpValue =
+	    (pModeParam->vertical_sync_polarity == POS
+	     ? FIELD_SET(ulTmpValue, DISPLAY_CTRL, VSYNC_PHASE, ACTIVE_HIGH)
+	     : FIELD_SET(ulTmpValue, DISPLAY_CTRL, VSYNC_PHASE, ACTIVE_LOW));
 
-	if(clk_phase == 0)
-		ulTmpValue = FIELD_SET(ulTmpValue, DISPLAY_CTRL, CLOCK_PHASE, ACTIVE_LOW);
-	if(clk_phase == 1)
-		ulTmpValue = FIELD_SET(ulTmpValue, DISPLAY_CTRL, CLOCK_PHASE, ACTIVE_HIGH);
+	ulTmpValue = (pModeParam->horizontal_sync_polarity == POS
+		       ? FIELD_SET(ulTmpValue, DISPLAY_CTRL, HSYNC_PHASE, ACTIVE_HIGH)
+		       : FIELD_SET(ulTmpValue, DISPLAY_CTRL, HSYNC_PHASE, ACTIVE_LOW));
 
+	ulTmpValue = (pModeParam->clock_phase_polarity == POS
+		       ? FIELD_SET(ulTmpValue, DISPLAY_CTRL, CLOCK_PHASE, ACTIVE_HIGH)
+		       : FIELD_SET(ulTmpValue, DISPLAY_CTRL, CLOCK_PHASE, ACTIVE_LOW));
+	ulTmpValue = FIELD_SET(ulTmpValue, DISPLAY_CTRL, DATA_PATH, EXTENDED);
+	ulTmpValue = FIELD_SET(ulTmpValue, DISPLAY_CTRL, DIRECTION, INPUT);
+	ulTmpValue = FIELD_SET(ulTmpValue, DISPLAY_CTRL, TIMING, ENABLE);
+	ulTmpValue = FIELD_SET(ulTmpValue, DISPLAY_CTRL, PLANE, ENABLE);
+	ulTmpValue = (pLogicalMode->bpp == 8 ? FIELD_SET(ulTmpValue, DISPLAY_CTRL, FORMAT, 8)
+	       : (pLogicalMode->bpp == 16
+		  ? FIELD_SET(ulTmpValue, DISPLAY_CTRL, FORMAT, 16)
+		  : FIELD_SET(ulTmpValue, DISPLAY_CTRL, FORMAT, 32)));
+
+	if (offset == 0 && clk_phase == 0)
+		ulTmpValue =
+		    FIELD_SET(ulTmpValue, DISPLAY_CTRL, CLOCK_PHASE,
+			      ACTIVE_LOW);
+	if (offset == 0 && clk_phase == 1)
+		ulTmpValue =
+		    FIELD_SET(ulTmpValue, DISPLAY_CTRL, CLOCK_PHASE,
+			      ACTIVE_HIGH);
 	
 	if( hdmi_channel == DISPLAY_CTRL_HDMI_SELECT_CHANNEL0)
 		 ulTmpValue= FIELD_SET(ulTmpValue,DISPLAY_CTRL, HDMI_SELECT, CHANNEL0);

@@ -1109,10 +1109,10 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 	}
 	
 	if(connector->connector_type == DRM_MODE_CONNECTOR_DVII){
-		if((mode->hdisplay > 1920) || (mode->vdisplay > 1080) || (mode->clock > 150000))
+		if(mode->clock >= 200000)
 			return MODE_NOMODE;
-
 	}
+
 
 
 	if(lvds_channel && (!lcd_scale)){

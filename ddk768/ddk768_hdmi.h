@@ -199,6 +199,7 @@ typedef struct _hdmi_vic_param_t
     unsigned long Width;
     unsigned long Height;
     unsigned char Vic;
+    unsigned char PB2;
 }
 hdmi_vic_param_t; 
 

@@ -435,6 +435,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		goto out;
 	}
 
+#if 0
 	drm_vblank_init(dev, dev->mode_config.num_crtc);
 
 
@@ -446,7 +447,8 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 #endif
 	if (r)
 		DRM_ERROR("install irq failed , ret = %d\n", r);
-	
+#endif
+		
 	dev->mode_config.funcs = (void *)&smi_mode_funcs;
 	r = smi_modeset_init(cdev);
 	if (r){

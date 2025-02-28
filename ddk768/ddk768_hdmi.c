@@ -19,6 +19,8 @@
 #include "ddk768_hdmi.h"
 #include "ddk768_reg.h"
 #include "ddk768_power.h"
+#include "ddk768_chip.h"
+
 #include "hdmiregs.h"
 
 
@@ -111,7 +113,7 @@ void Delay (void)
 
 void DelayMs (BYTE millisecond)
 {
-	mdelay(millisecond);
+	usleep_range(millisecond * 1000 , millisecond * 1100);
 }
 
 //-----------------------------------------------------------------------------
@@ -1157,8 +1159,11 @@ long HDMI_Set_Mode (logicalMode_t *pLogicalMode, mode_parameter_t *pModeParam, b
     // set video param
     HDMI_Video_Setting(pModeParam, isHDMI);
 
-    // set audio param
-    HDMI_Audio_Setting_48000Hz(pModeParam);
+	// set audio param
+	if (ddk768_getCrystalType())
+   		 HDMI_Audio_Setting_48000Hz(pModeParam);
+	else
+		 HDMI_Audio_Setting_44100Hz(pModeParam);
     
     // control packet auto send
     HDMI_Control_Packet_Auto_Send();

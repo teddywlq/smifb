@@ -113,8 +113,7 @@ static int smi_kick_out_firmware_fb(struct pci_dev *pdev)
 	primary = pdev->resource[PCI_ROM_RESOURCE].flags & IORESOURCE_ROM_SHADOW;
 #endif
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0))&& !defined(RHEL_RELEASE_VERSION)  )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0))
 	drm_fb_helper_remove_conflicting_framebuffers(ap, "smidrmfb", primary);
 #else
 	remove_conflicting_framebuffers(ap, "smidrmfb", primary);
@@ -184,8 +183,7 @@ static int smi_drm_freeze(struct drm_device *dev)
 
 	if (sdev->mode_info.gfbdev) {
 		console_lock();
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)	)&& !defined(RHEL_RELEASE_VERSION)  )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))		
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0))
 		drm_fb_helper_set_suspend(&sdev->mode_info.gfbdev->helper, 1);
 	
 #else
@@ -217,8 +215,7 @@ static int smi_drm_thaw(struct drm_device *dev)
 
 	if (sdev->mode_info.gfbdev) {
 		console_lock();
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0))&& !defined(RHEL_RELEASE_VERSION)  )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))			
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0))
 		drm_fb_helper_set_suspend(&sdev->mode_info.gfbdev->helper, 0);
 #else
 		fb_set_suspend(sdev->mode_info.gfbdev->helper.fbdev, 0);
@@ -441,9 +438,8 @@ static struct drm_driver driver = {
 #endif
 	.load = smi_driver_load,
 	.unload = smi_driver_unload,
-#if (((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && \
-	(LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && \
+	(LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)))
 	.set_busid = drm_pci_set_busid,
 #endif	
 	.fops = &smi_driver_fops,
@@ -453,28 +449,23 @@ static struct drm_driver driver = {
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
-#if ((LINUX_VERSION_CODE <= KERNEL_VERSION(3,12,0))&& !defined(RHEL_RELEASE_VERSION)  )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))	
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,12,0))
 	.gem_init_object = smi_gem_init_object,
 #endif
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))&& !defined(RHEL_RELEASE_VERSION)  )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))
 	.gem_free_object = smi_gem_free_object,
 #else
 	.gem_free_object_unlocked = smi_gem_free_object,
 #endif	
 	.dumb_create = smi_dumb_create,
 	.dumb_map_offset = smi_dumb_mmap_offset,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0))&& !defined(RHEL_RELEASE_VERSION)  )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0))
 	.dumb_destroy = smi_dumb_destroy,
 #else
 	.dumb_destroy = drm_gem_dumb_destroy,
 #endif
-#if (((LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)) && \
-	(LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))&& !defined(RHEL_RELEASE_VERSION)) )|| \
-	(defined(RHEL_RELEASE_VERSION) && \
-	(RHEL_VERSION_HIGHER_THAN(7,4) && RHEL_VERSION_LOWER_THAN(7,5)))	
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)) && \
+	(LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0)))
 	.get_vblank_counter	= drm_vblank_no_hw_counter,
 #endif	
 	.enable_vblank		= smi_enable_vblank,
@@ -484,8 +475,7 @@ static struct drm_driver driver = {
 	.irq_uninstall = smi_irq_uninstall,
 	.irq_handler		= smi_drm_interrupt,
 #ifdef PRIME
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))
 	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 
@@ -499,8 +489,7 @@ static struct drm_driver driver = {
 	.gem_prime_pin		= smi_gem_prime_pin,
 	.gem_prime_unpin 	= smi_gem_prime_unpin,
 #endif
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
 	.gem_prime_res_obj = smi_gem_prime_res_obj,
 #endif
 #endif
@@ -526,8 +515,7 @@ static struct pci_driver smi_pci_driver = {
 
 static int __init smi_init(void)
 {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))
 #ifdef CONFIG_VGA_CONSOLE
 	if (vgacon_text_force() && smi_modeset == -1)
 		return -EINVAL;
@@ -539,8 +527,7 @@ static int __init smi_init(void)
 #endif
 	if (smi_modeset == 0)
 		return -EINVAL;
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))
 	return drm_pci_init(&driver, &smi_pci_driver);
 #else
 	return pci_register_driver(&smi_pci_driver);
@@ -549,8 +536,7 @@ static int __init smi_init(void)
 
 static void __exit smi_exit(void)
 {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))
 	drm_pci_exit(&driver, &smi_pci_driver);
 #else
 	pci_unregister_driver(&smi_pci_driver);

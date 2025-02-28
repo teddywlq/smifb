@@ -38,7 +38,12 @@
 #include "smi_drv.h"
 #include "hw768.h"
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))
 
+#include <linux/string.h>
+#define memset32(addr, value, count) memset_io((void __iomem *)(addr), (value), (count) * sizeof(uint32_t))
+
+#endif
 
 struct sm768chip *chip_irq_id=NULL;/*chip_irq_id is use for request and free irq*/
 int use_wm8978 = 0;
@@ -406,7 +411,7 @@ static int snd_falconi2s_pcm_playback_trigger(struct snd_pcm_substream *substrea
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:			
 		dbg_msg("PLAY SNDRV_PCM_TRIGGER_START\n");
-		memset_io(chip->pvReg + SRAM_OUTPUT_BASE, 0, SRAM_OUTPUT_SIZE);
+		memset32((void *)((unsigned long)chip->pvReg + SRAM_OUTPUT_BASE), 0, SRAM_OUTPUT_SIZE/4);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		dbg_msg("PLAY SNDRV_PCM_TRIGGER_STOP\n");
@@ -432,7 +437,7 @@ static int snd_falconi2s_pcm_playback_trigger(struct snd_pcm_substream *substrea
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:		
 		dbg_msg("CAPTURE SNDRV_PCM_TRIGGER_START\n");
-		memset_io(chip->pvReg + SRAM_INPUT_BASE, 0, SRAM_INPUT_SIZE);
+		memset32((void *)((unsigned long)chip->pvReg + SRAM_INPUT_BASE), 0, SRAM_INPUT_SIZE/4);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		dbg_msg("CAPTURE SNDRV_PCM_TRIGGER_STOP\n");
@@ -524,7 +529,7 @@ static int snd_smi_play_copy_data(struct sm768chip *chip,int sramTxSection)
 	play_substream = chip->play_substream;
 
 	if(play_substream == NULL)
-		memset_io(chip->pvReg + SRAM_OUTPUT_BASE + SRAM_SECTION_SIZE * sramTxSection, 0x00, P_PERIOD_BYTE);
+		memset32((void *)((unsigned long)chip->pvReg + SRAM_OUTPUT_BASE) + SRAM_SECTION_SIZE * sramTxSection, 0x00, P_PERIOD_BYTE/4);
 	else{
 		play_runtime = play_substream->runtime;
 
@@ -548,7 +553,7 @@ static int snd_smi_capture_copy_data(struct sm768chip *chip,int sramTxSection)
 	capture_substream = chip->capture_substream;
 
 	if(capture_substream == NULL)	
-		memset_io(chip->pvReg + SRAM_INPUT_BASE + SRAM_SECTION_SIZE * sramTxSection, 0x00,  P_PERIOD_BYTE);
+		memset32((void *)((unsigned long)chip->pvReg + SRAM_INPUT_BASE + SRAM_SECTION_SIZE * sramTxSection), 0x00,  P_PERIOD_BYTE/4);
 		
 	else{
 		capture_runtime = capture_substream->runtime;
@@ -721,8 +726,7 @@ int smi_audio_init(struct drm_device *dev)
 	else if(audio_en == 2)
 		use_wm8978 = 1;
 	
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)&& !defined(RHEL_RELEASE_VERSION) )) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
 	err = snd_card_new(&pdev->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1, THIS_MODULE, 0, &card); 
 #else
 	err = snd_card_create(-1, 0, THIS_MODULE, 0, &card);	  

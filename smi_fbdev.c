@@ -33,8 +33,7 @@ static struct fb_ops smifb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = drm_fb_helper_check_var,
 	.fb_set_par = drm_fb_helper_set_par,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 	.fb_fillrect = sys_fillrect,
 	.fb_copyarea = sys_copyarea,
 	.fb_imageblit = sys_imageblit,
@@ -54,8 +53,7 @@ static int smifb_create_object(struct smi_fbdev *afbdev,
 			       struct drm_gem_object **gobj_p)
 {
 	struct drm_device *dev = afbdev->helper.dev;
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0)	 )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))
 	struct smi_device *UNUSED(cdev) = dev->dev_private;
 #endif	
 	u32 size;
@@ -92,8 +90,7 @@ smi_fb_zfill(struct drm_device *dev, struct smi_fbdev *gfbdev)
 }
 
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 static int smifb_create(struct drm_fb_helper *helper,
 			   struct drm_fb_helper_surface_size *sizes)
 #else
@@ -101,10 +98,9 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 			   struct drm_fb_helper_surface_size *sizes)
 #endif
 {
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))
 	struct smi_fbdev *gfbdev = container_of(helper, struct smi_fbdev, helper);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)&& !defined(RHEL_RELEASE_VERSION)  )
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 	struct smi_fbdev *gfbdev = (struct smi_fbdev *)helper;
 #endif		
 
@@ -113,8 +109,7 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 	struct fb_info *info;
 	struct drm_framebuffer *fb;
 	struct drm_mode_fb_cmd2 mode_cmd;
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 	struct device *device = &dev->pdev->dev;
 #endif
 	struct drm_gem_object *gobj = NULL;
@@ -157,8 +152,7 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 	ttm_bo_unreserve(&bo->bo);
 
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0) )
 	info = framebuffer_alloc(0, device);
 	if (info == NULL)
 		return -ENOMEM;
@@ -186,8 +180,7 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 
 	/* setup helper */
 	gfbdev->helper.fb = fb;
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 	gfbdev->helper.fbdev = info;
 #endif
 
@@ -200,8 +193,7 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 	info->flags = FBINFO_DEFAULT;
 	info->fbops = &smifb_ops;
 
-#if ((KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#if (KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)
 	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->depth);
 
 	drm_fb_helper_fill_var(info, &gfbdev->helper, sizes->fb_width,
@@ -221,8 +213,7 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 	
 
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 	/* setup aperture base/size for vesafb takeover */
 	info->apertures = alloc_apertures(1);
 	if (!info->apertures) {
@@ -241,16 +232,14 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
 	drm_vma_offset_remove(&bo->bo.bdev->vma_manager, &bo->bo.base.vma_node);
-#elif ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
 	drm_vma_offset_remove(&bo->bo.bdev->vma_manager, &bo->bo.vma_node);
 #endif
 	
 	info->fix.mmio_start = 0;
 	info->fix.mmio_len = size;
 	
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 	ret = fb_alloc_cmap(&info->cmap, 256, 0);
 	if (ret) {
 		DRM_ERROR("%s: can't allocate color map\n", info->fix.id);
@@ -264,8 +253,7 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 	DRM_INFO("fb mappable at 0x%lX\n", info->fix.smem_start);
 	DRM_INFO("vram aper at 0x%lX\n", (unsigned long)info->fix.smem_start);
 	DRM_INFO("size %lu\n", (unsigned long)info->fix.smem_len);
-#if ((KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#if (KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)
 	DRM_INFO("fb depth is %d\n", fb->depth);
 #else
 	DRM_INFO("fb depth is %d\n", fb->format->depth);
@@ -274,15 +262,13 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 
 	return 0;
 	
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 out_iounmap:
 	return ret;
 #endif	
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0))
 static int smifb_find_or_create_single(struct drm_fb_helper *helper,
 			   struct drm_fb_helper_surface_size *sizes)
 {
@@ -314,8 +300,7 @@ smi_fb_output_poll_changed(struct smi_device *sdev)
 static int smi_fbdev_destroy(struct drm_device *dev,
 				struct smi_fbdev *gfbdev)
 {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0))
 	struct fb_info *info;
 	struct smi_framebuffer *gfb = &gfbdev->gfb;
 
@@ -331,8 +316,7 @@ static int smi_fbdev_destroy(struct drm_device *dev,
 	struct smi_framebuffer *gfb = &gfbdev->gfb;
 
 	drm_fb_helper_unregister_fbi(&gfbdev->helper);
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 	drm_fb_helper_release_fbi(&gfbdev->helper);
 #endif
 #endif
@@ -347,8 +331,7 @@ static int smi_fbdev_destroy(struct drm_device *dev,
 
 
 	drm_fb_helper_fini(&gfbdev->helper);
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 	drm_framebuffer_unregister_private(&gfb->base);
 #endif
 	drm_framebuffer_cleanup(&gfb->base);
@@ -357,13 +340,11 @@ static int smi_fbdev_destroy(struct drm_device *dev,
 }
 
 static const struct drm_fb_helper_funcs smi_fb_helper_funcs = {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,6))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))
 	.gamma_set = smi_crtc_fb_gamma_set,
 	.gamma_get = smi_crtc_fb_gamma_get,
 #endif
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 	.fb_probe = smifb_create,
 #else
 	.fb_probe = smifb_find_or_create_single,
@@ -381,19 +362,16 @@ int smi_fbdev_init(struct smi_device *cdev)
 		return -ENOMEM;
 
 	cdev->mode_info.gfbdev = gfbdev;
-#if ((KERNEL_VERSION(3, 17, 0) > LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
+#if (KERNEL_VERSION(3, 17, 0) > LINUX_VERSION_CODE)
 	gfbdev->helper.funcs = &smi_fb_helper_funcs;
 #endif	
 	spin_lock_init(&gfbdev->dirty_lock);
-#if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE)
 	drm_fb_helper_prepare(cdev->dev, &gfbdev->helper,
 								  &smi_fb_helper_funcs);
 #endif
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,5))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 		ret = drm_fb_helper_init(cdev->dev, &gfbdev->helper,
 									SMIFB_CONN_LIMIT);
 #else

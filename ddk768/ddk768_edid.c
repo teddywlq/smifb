@@ -131,7 +131,7 @@ static void printVdif(
  *  Output:
  *      0 get header success; -1 fail.
  */
-unsigned char edidGetHeader(
+__attribute__((unused)) static unsigned char edidGetHeader(
     unsigned char *pEDIDBuffer
 )
 {
@@ -992,6 +992,7 @@ unsigned char ddk768_edidGetExtension(
     return 0;
 }
 
+#if 0
 #define EDID_TOTAL_RETRY_COUNTER            1
 /*
  *  ddk768_edidReadMonitor
@@ -1347,7 +1348,7 @@ long ddk768_edidHeaderReadMonitorExHwI2C(
     return 0;
 }
 
-
+#endif
 
 /*
  *  ddk768_edidGetEstablishedTiming

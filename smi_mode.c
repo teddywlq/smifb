@@ -12,8 +12,7 @@
 
 #include "smi_drv.h"
 
-#if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )
 #include <drm/drm_gem.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_atomic_helper.h>
@@ -51,8 +50,7 @@ int smi_calc_hdmi_ctrl(int m_connector)
 
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,6))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0) )
 /*
  * This file contains setup code for the CRTC.
  */
@@ -128,8 +126,7 @@ static void smi_crtc_dpms(struct drm_crtc *crtc, int mode)
 	LEAVE();
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
 
 /*
  * The core passes the desired mode to the CRTC code to see whether any
@@ -169,8 +166,7 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 		}
 	}
 
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0) )
 	smi_fb = to_smi_framebuffer(crtc->primary->fb);
 #else
 	smi_fb = to_smi_framebuffer(crtc->fb);
@@ -192,8 +188,7 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 
 	smi_bo_unreserve(bo);
 
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0) ) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))
 	pitch = crtc->primary->fb->pitches[0] ;
 #else
 	pitch = crtc->fb->pitches[0] ;
@@ -377,15 +372,15 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 		switch (ctrl_index)
 		{
 			case 0:
-				if (drm_edid_header_is_valid((u8 *)sdev->dvi_edid) == 8)
+				if (sdev->dvi_edid && drm_edid_header_is_valid((u8 *)sdev->dvi_edid) == 8)
 					logicalMode.valid_edid = true;
 				break;
 			case 1:
-				if (drm_edid_header_is_valid((u8 *)sdev->vga_edid) == 8)
+				if (sdev->vga_edid && drm_edid_header_is_valid((u8 *)sdev->vga_edid) == 8)
 					logicalMode.valid_edid = true;
 				break;
 			case 2:
-				if (drm_edid_header_is_valid((u8 *)sdev->hdmi_edid) == 8)
+				if (sdev->hdmi_edid && drm_edid_header_is_valid((u8 *)sdev->hdmi_edid) == 8)
 					logicalMode.valid_edid = true;
 				break;
 			default:
@@ -480,11 +475,9 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 	LEAVE(0);
  }
 
-#if ( (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2) )
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
 	
-#if	((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION)&& RHEL_VERSION_LOWER_THAN(7,5))
+#if	(LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 
 int smi_crtc_page_flip(struct drm_crtc *crtc,struct drm_framebuffer *fb,
     struct drm_pending_vblank_event *event, uint32_t page_flip_flags)
@@ -541,8 +534,7 @@ static void smi_crtc_destroy(struct drm_crtc *crtc)
 static const struct drm_crtc_funcs smi_crtc_funcs = {
  	.set_config = drm_crtc_helper_set_config,//kernel: deprecated. will be instead of drm_atomic_helper_set_config
 	.destroy = smi_crtc_destroy,
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
 	.page_flip = smi_crtc_page_flip,
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
@@ -552,16 +544,14 @@ static const struct drm_crtc_funcs smi_crtc_funcs = {
 
 static const struct drm_crtc_helper_funcs smi_helper_funcs = {
 	.dpms = smi_crtc_dpms,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
 	.mode_fixup = smi_crtc_mode_fixup,
 #endif	
 	.mode_set = smi_crtc_mode_set,
 	.mode_set_base = smi_crtc_mode_set_base,
 	.prepare = smi_crtc_prepare,
 	.commit = smi_crtc_commit,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))
 	.load_lut = smi_crtc_load_lut,
 #endif
 };
@@ -581,8 +571,7 @@ static struct smi_crtc * smi_crtc_init(struct drm_device *dev, int crtc_id)
  	if (smi_crtc == NULL)
 		return NULL;
 	
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))	
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0))
 	primary = smi_plane_init(cdev, 1 << crtc_id, DRM_PLANE_TYPE_PRIMARY);
 
 	if (IS_ERR(primary)) {
@@ -595,7 +584,7 @@ static struct smi_crtc * smi_crtc_init(struct drm_device *dev, int crtc_id)
 		cursor = NULL;
 	}
 	else{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)  && !defined(RHEL_RELEASE_VERSION)  )
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0))
 		/* It seems that cursor plane can't run under kernel v4.1. Workaroud to disable it.
 			If I have time, i will fix it and re-enable it*/		
 		cursor = smi_plane_init(cdev, 1 << crtc_id, DRM_PLANE_TYPE_CURSOR);
@@ -607,10 +596,9 @@ static struct smi_crtc * smi_crtc_init(struct drm_device *dev, int crtc_id)
 	}
 	smi_crtc->CursorOffset = 0;
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))
 	r = drm_crtc_init(dev, &smi_crtc->base, &smi_crtc_funcs);
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0)) && (!defined(RHEL_RELEASE_VERSION))	
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0))
 	r = drm_crtc_init_with_planes(dev, &smi_crtc->base, primary, cursor,
 				      &smi_crtc_funcs);
 #else
@@ -618,9 +606,9 @@ static struct smi_crtc * smi_crtc_init(struct drm_device *dev, int crtc_id)
 				      &smi_crtc_funcs, NULL);
 #endif
 
-	if (r)
+	if (r) {
 		goto clean_cursor;
-
+	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
 	drm_mode_crtc_set_gamma_size(&smi_crtc->base, 256);
 #endif
@@ -637,8 +625,11 @@ static struct smi_crtc * smi_crtc_init(struct drm_device *dev, int crtc_id)
 	return smi_crtc;
 
 clean_cursor:
-	drm_plane_cleanup(cursor);
-	kfree(cursor);
+	if (cursor) {
+		drm_plane_cleanup(cursor);
+		kfree(cursor);
+	}
+
 clean_primary:
 	drm_plane_cleanup(primary);
 	kfree(primary);
@@ -669,8 +660,7 @@ void smi_crtc_fb_gamma_get(struct drm_crtc *crtc, u16 *red, u16 *green,
 	*blue = smi_crtc->lut_b[regno];
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
 static bool smi_encoder_mode_fixup(struct drm_encoder *encoder,
 				      const struct drm_display_mode *mode,
 				      struct drm_display_mode *adjusted_mode)
@@ -777,7 +767,7 @@ static void smi_encoder_commit(struct drm_encoder *encoder)
 
 }
 
-void smi_encoder_destroy(struct drm_encoder *encoder)
+static void smi_encoder_destroy(struct drm_encoder *encoder)
 {
 	struct smi_encoder *smi_encoder = to_smi_encoder(encoder);
 	drm_encoder_cleanup(encoder);
@@ -786,8 +776,7 @@ void smi_encoder_destroy(struct drm_encoder *encoder)
 
 static const struct drm_encoder_helper_funcs smi_encoder_helper_funcs = {
 	.dpms = smi_encoder_dpms,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
 	.mode_fixup = smi_encoder_mode_fixup,
 #endif
 	.mode_set = smi_encoder_mode_set,
@@ -815,8 +804,7 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 	{
 		case 0:
 			drm_encoder_init(dev, encoder, &smi_encoder_encoder_funcs,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0))
 			 DRM_MODE_ENCODER_LVDS);//DVI,LVDS,
 #else
 			 DRM_MODE_ENCODER_LVDS, NULL);
@@ -824,8 +812,7 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 			break;
 		case 1:
 			drm_encoder_init(dev, encoder, &smi_encoder_encoder_funcs,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0))
 			 DRM_MODE_ENCODER_DAC);//VGA
 #else
 			 DRM_MODE_ENCODER_DAC, NULL);
@@ -834,8 +821,7 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 		case 2:
             encoder->possible_crtcs = 0x3;
 			drm_encoder_init(dev, encoder, &smi_encoder_encoder_funcs,
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0))
 			 DRM_MODE_ENCODER_TMDS);//HDMI.
 #else
 			 DRM_MODE_ENCODER_TMDS, NULL);
@@ -859,9 +845,13 @@ void drm_set_preferred_mode(struct drm_connector *connector, int hpref, int vpre
 
 int smi_connector_get_modes(struct drm_connector *connector)
 {
-	int ret = 0, count = 0;
-	void *edid_buf;
+#ifdef USE_HDMICHIP
+	int ret = 0;
+	void *edid_buf = NULL;
+#endif
+	int count = 0;
 	struct smi_device *sdev = connector->dev->dev_private;
+	struct smi_connector *smi_connector = to_smi_connector(connector);
 
 	ENTER();
 	dbg_msg("print connector type: [%d], DVI=%d, VGA=%d, HDMI=%d\n",
@@ -885,8 +875,7 @@ int smi_connector_get_modes(struct drm_connector *connector)
 			ddk750_Release9022DDC();
 			if(ret){
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
               	drm_connector_update_edid_property(connector, sdev->dvi_edid);
 #else
                 drm_mode_connector_update_edid_property(connector, sdev->dvi_edid);
@@ -897,8 +886,7 @@ int smi_connector_get_modes(struct drm_connector *connector)
                 if (ret == 0 || count == 0)
                 {
 	
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
                         drm_connector_update_edid_property(connector, NULL);
 #else
                         drm_mode_connector_update_edid_property(connector, NULL);
@@ -909,27 +897,25 @@ int smi_connector_get_modes(struct drm_connector *connector)
 
 
 #else
-			edid_buf = sdev->dvi_edid;
+			if(!hwi2c_en)
+			{
+				sdev->dvi_edid = drm_get_edid(connector, &smi_connector->adapter);
+			}
 
-			if(hwi2c_en)
-				ret = ddk750_edidReadMonitorEx_HW(SMI0_CTRL, edid_buf, 256, 0);
-			else
-				ret = ddk750_edidReadMonitorEx(SMI0_CTRL, edid_buf, 256, 0, 30, 31);
-	
-			dbg_msg("DVI edid size= %d\n",ret);
-			if(ret){
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+			if(sdev->dvi_edid)
+			{
+				dbg_msg("DVI get edid success.\n");
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, sdev->dvi_edid); 
 #else
 				drm_mode_connector_update_edid_property(connector, sdev->dvi_edid);
 #endif
 				count = drm_add_edid_modes(connector, sdev->dvi_edid);
 			}
-			if (ret == 0 || count == 0)
+			if (sdev->dvi_edid == NULL || count == 0)
 			{
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, NULL);
 #else
 				drm_mode_connector_update_edid_property(connector, NULL);
@@ -942,23 +928,23 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		}
 		if(connector->connector_type == DRM_MODE_CONNECTOR_VGA)
 		{
-			edid_buf = sdev->vga_edid;
-			
-			ret = ddk750_edidReadMonitorEx(SMI1_CTRL, edid_buf, 256, 0, 17, 18);
+		
+			sdev->vga_edid = drm_get_edid(connector, &smi_connector->adapter);
 
-			if(ret){
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+			if(sdev->vga_edid){
+
+			    dbg_msg("VGA get edid success.\n");
+			
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, sdev->vga_edid); 
 #else
 				drm_mode_connector_update_edid_property(connector, sdev->vga_edid);
 #endif
-				count = drm_add_edid_modes(connector, sdev->vga_edid);;
+				count = drm_add_edid_modes(connector, sdev->vga_edid);
 			}
-			if (ret == 0 || count == 0)
+			if (sdev->vga_edid == NULL || count == 0)
 			{
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, NULL);
 #else
 				drm_mode_connector_update_edid_property(connector, NULL);
@@ -975,39 +961,35 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		if(connector->connector_type == DRM_MODE_CONNECTOR_DVII)
 		{
 			if(lvds_channel){
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, NULL);
 #else
 				drm_mode_connector_update_edid_property(connector, NULL);
 #endif
 				count = drm_add_modes_noedid(connector, fixed_width, fixed_height);
 				drm_set_preferred_mode(connector, fixed_width, fixed_height);
-			}else{
-			
-				edid_buf = sdev->dvi_edid;
+			}
+			else
+			{
+				if(!hwi2c_en)
+				{
+				    sdev->dvi_edid = drm_get_edid(connector, &smi_connector->adapter);
+				}
 
-				if(hwi2c_en)
-					ret = ddk768_edidReadMonitorExHwI2C(edid_buf,256,0,0);
-				else					
-			    	ret = ddk768_edidReadMonitorEx(edid_buf, 256, 0, 30, 31 );//GPIO 30,31 for DVI,HW I2C0   
+				if(sdev->dvi_edid)
+				{
+					dbg_msg("DVI get edid success.\n");
 
-				dbg_msg("DVI edid size= %d\n",ret);
-
-				if(ret){
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 					drm_connector_update_edid_property(connector, sdev->dvi_edid); 
 #else
 					drm_mode_connector_update_edid_property(connector, sdev->dvi_edid);
 #endif
-
 					count = drm_add_edid_modes(connector, sdev->dvi_edid);
 				}
-				if (ret == 0 || count == 0)
+				if (sdev->dvi_edid == NULL || count == 0)
 				{
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 					drm_connector_update_edid_property(connector, NULL);
 #else
 					drm_mode_connector_update_edid_property(connector, NULL);
@@ -1015,33 +997,32 @@ int smi_connector_get_modes(struct drm_connector *connector)
 					count = drm_add_modes_noedid(connector, 1920, 1080);
 					drm_set_preferred_mode(connector, fixed_width, fixed_height);
 				}
+		
 			}
-
 		}
 		if(connector->connector_type == DRM_MODE_CONNECTOR_VGA)
 		{
-			edid_buf = sdev->vga_edid;
 
-			if(hwi2c_en)		
-				ret = ddk768_edidReadMonitorExHwI2C(edid_buf,256,0,1);
-			else
-				ret = ddk768_edidReadMonitorEx(edid_buf, 256, 0, 6, 7);//GPIO 6,7 for VGA,HW I2C1 
+			if(!hwi2c_en)
+			{
+				sdev->vga_edid = drm_get_edid(connector, &smi_connector->adapter);
+			}
 
-			dbg_msg("VGA edid size= %d\n",ret);		
-		       
-			if(ret){
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+			if(sdev->vga_edid)
+			{
+			    dbg_msg("VGA get edid success.\n");
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, sdev->vga_edid);
 #else
 				drm_mode_connector_update_edid_property(connector, sdev->vga_edid);
 #endif
 				count = drm_add_edid_modes(connector, sdev->vga_edid);
 			}
-			if (ret == 0 || count == 0)
+
+			if (sdev->vga_edid == NULL || count == 0)
 			{
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, NULL);
 #else
 				drm_mode_connector_update_edid_property(connector, NULL);
@@ -1049,18 +1030,16 @@ int smi_connector_get_modes(struct drm_connector *connector)
 				count = drm_add_modes_noedid(connector, 1920, 1080);
 				drm_set_preferred_mode(connector, fixed_width, fixed_height);
 			}
-
 		}
 		if(connector->connector_type == DRM_MODE_CONNECTOR_HDMIA)
 		{
-			edid_buf = sdev->hdmi_edid;
 
-			ret = ddk768_edidReadMonitorEx(edid_buf, 256, 0, 8,9 ); //use GPIO8/9 for HDMI,
-			dbg_msg("HDMI edid size= %d\n",ret);
+			sdev->hdmi_edid = drm_get_edid(connector, &smi_connector->adapter);
             //hw768_get_hdmi_edid(tmpedid);   // Too Slow..
-			if(ret){
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+			if (sdev->hdmi_edid)
+			{
+				dbg_msg("HDMIA get edid success.\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, sdev->hdmi_edid);
 #else
 				drm_mode_connector_update_edid_property(connector, sdev->hdmi_edid);
@@ -1069,10 +1048,9 @@ int smi_connector_get_modes(struct drm_connector *connector)
 				sdev->is_hdmi = drm_detect_hdmi_monitor(sdev->hdmi_edid);
                 dbg_msg("HDMI connector is %s\n",(sdev->is_hdmi ? "HDMI monitor" : "DVI monitor"));
 			}
-			if (ret == 0 || count == 0)
+			if (sdev->hdmi_edid == NULL || count == 0)
 			{
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,7))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 				drm_connector_update_edid_property(connector, NULL);
 #else
 				drm_mode_connector_update_edid_property(connector, NULL);
@@ -1131,8 +1109,7 @@ struct drm_encoder *smi_connector_best_encoder(struct drm_connector
 						  *connector)
 {
 	int enc_id = connector->encoder_ids[0];
-#if ((LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,0))
 
 	struct drm_mode_object *obj;
 	struct drm_encoder *encoder;
@@ -1147,8 +1124,7 @@ struct drm_encoder *smi_connector_best_encoder(struct drm_connector
 		encoder = obj_to_encoder(obj);
 		return encoder;
 	}
-#elif ((LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,6))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
 	if(enc_id)
 		return drm_encoder_find(connector->dev, enc_id);
 #else
@@ -1162,7 +1138,15 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 														  *connector,
 													  bool force)
 {
-	long ret = 0;
+
+    struct smi_connector *smi_connector = to_smi_connector(connector);
+	struct smi_device *sdev = connector->dev->dev_private;
+#ifdef USE_HDMICHIP
+	int ret = 0;
+	void *edid_buf;
+#endif
+	unsigned int mon_detect = 0;
+
 
 	if (g_specId == SPC_SM750)
 	{
@@ -1177,8 +1161,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 					return connector_status_disconnected;
 			}
 #ifdef USE_HDMICHIP
-			void *edid_buf;
-			int ret = 0;
+
 			if (ddk750_GetDDC_9022Access())
 				ret = ddk750_edidReadMonitorEx(SMI0_CTRL, edid_buf, 128, 0, 30, 31);
 			ddk750_Release9022DDC();
@@ -1193,23 +1176,36 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 				return connector_status_disconnected;
 			}
 #endif
-
-
-			if(hwi2c_en)
-				ret = ddk750_edidHeaderReadMonitorExHwI2C();
-			else
-				ret = ddk750_edidHeaderReadMonitorEx(30,31);
-
-			if (ret < 0)
+			if (hwi2c_en)
 			{
-				dbg_msg("detect DVI/Panel DO NOT connected.\n");
-				return connector_status_disconnected;
+                sdev->dvi_edid = drm_get_edid(connector, &smi_connector->adapter);
+
+            	if (sdev->dvi_edid)
+				{
+                 	if (drm_edid_header_is_valid(sdev->dvi_edid) > 6) 
+
+						mon_detect = 1;
+			    }
+
 			}
-			else
+            else
+			{
+				if (drm_probe_ddc(&smi_connector->adapter))
+	
+					mon_detect = 1;
+			}
+
+			if (mon_detect)
 			{
 				dbg_msg("detect DVI/Panel connected.\n");
 				return connector_status_connected;
 			}
+			else
+			{
+				dbg_msg("detect DVI/Panel DO NOT connected.\n");
+				return connector_status_disconnected;
+			}
+			
 		}
 		else if (connector->connector_type == DRM_MODE_CONNECTOR_VGA)
 		{
@@ -1221,21 +1217,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 					return connector_status_disconnected;
 			}
 
-#if 0
-			if(ddk750_detectCRTMonitor(0, 0, 0) == 0)
-			{	
-				dbg_msg("detect CRT connected.\n");
-				return connector_status_connected;
-			}
-			else
-			{	
-				dbg_msg("detect CRT DO NOT connected.\n");
-				return connector_status_disconnected;
-			}
-
-#else
-
-			if(ddk750_edidHeaderReadMonitorEx(17,18) < 0)	
+			if (!drm_probe_ddc(&smi_connector->adapter))
 			{
 				dbg_msg("detect CRT DO NOT connected.\n");
 				return connector_status_disconnected;
@@ -1245,8 +1227,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 				dbg_msg("detect CRT connected.\n");
 				return connector_status_connected;
 			}
-#endif	
-			
+
 		}
 		else
 			return connector_status_unknown;
@@ -1263,25 +1244,37 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 					return connector_status_disconnected;
 			}
 
+			if (hwi2c_en)
+			{
+                sdev->dvi_edid = drm_get_edid(connector, &smi_connector->adapter);
 
-			if(hwi2c_en)
-				ret = ddk768_edidHeaderReadMonitorExHwI2C(0);
-			else
-				ret = ddk768_edidHeaderReadMonitorEx(30,31);
+            	if (sdev->dvi_edid)
+				{
+                 	if (drm_edid_header_is_valid(sdev->dvi_edid) > 6) 
 
-			if(ret)	
-			{				
-				dbg_msg("detect DVI DO NOT connected. \n");
-				g_m_connector = g_m_connector & (~USE_DVI);
-				return connector_status_disconnected; 
+						mon_detect = 1;
+			    }
 			}
-			else
+            else
+			{
+				if (drm_probe_ddc(&smi_connector->adapter))
+
+					mon_detect = 1;
+			}
+
+			if (mon_detect)
 			{
 				dbg_msg("detect DVI connected(GPIO30,31)\n");
 				g_m_connector =g_m_connector |USE_DVI;
-				return connector_status_connected;
+                return connector_status_connected;
 			}
-
+			else
+			{
+				dbg_msg("detect DVI DO NOT connected. \n");
+				g_m_connector = g_m_connector & (~USE_DVI);
+				return connector_status_disconnected;
+			}
+				 
 		}
 		else if (connector->connector_type == DRM_MODE_CONNECTOR_VGA)
 		{
@@ -1292,26 +1285,39 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 					g_m_connector = g_m_connector & (~USE_VGA);
 					return connector_status_disconnected;
 			}
+			
+			if (hwi2c_en)
+			{
+				sdev->vga_edid = drm_get_edid(connector, &smi_connector->adapter);
 		
+           		if (sdev->vga_edid) 
+				{
+                	if (drm_edid_header_is_valid(sdev->vga_edid) > 6)
 
-			if(hwi2c_en)
-				ret = ddk768_edidHeaderReadMonitorExHwI2C(1);
-			else
-				ret = ddk768_edidHeaderReadMonitorEx(6,7);
-	
-			if(ret)						
-			{				
-				dbg_msg("detect CRT DO NOT connected. \n");
-				g_m_connector =g_m_connector&(~USE_VGA);
-				return connector_status_disconnected;
+                    	mon_detect = 1;
+            	}
+
 			}
 			else
+			{
+				if (drm_probe_ddc(&smi_connector->adapter))
+
+					mon_detect = 1;			
+			}
+
+			if (mon_detect)
 			{
 				dbg_msg("detect CRT connected(GPIO 6, 7)\n");
 				g_m_connector = g_m_connector|USE_VGA;
 				return connector_status_connected;
 			}
-		
+			else
+			{
+				dbg_msg("detect CRT DO NOT connected. \n");
+				g_m_connector =g_m_connector&(~USE_VGA);
+				return connector_status_disconnected;
+			}
+
 		}
 		else if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA)
 		{
@@ -1335,7 +1341,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 #if 0//ndef AUDIO_EN
 			if (hdmi_hotplug_detect())
 #else
-			if(ddk768_edidHeaderReadMonitorEx(8,9)==0)
+			if (drm_probe_ddc(&smi_connector->adapter))
 #endif
 			{
 				dbg_msg("detect HDMI connected(GPIO 8,9) \n");
@@ -1363,8 +1369,33 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 
 static void smi_connector_destroy(struct drm_connector *connector)
 {
-#if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+	struct smi_device *sdev = connector->dev->dev_private;
+	if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA && sdev->hdmi_edid)
+	{
+		kfree(sdev->hdmi_edid);
+		sdev->hdmi_edid = NULL;
+	}
+	else if (connector->connector_type == DRM_MODE_CONNECTOR_DVII && sdev->dvi_edid)
+	{
+		kfree(sdev->dvi_edid);
+		sdev->dvi_edid = NULL;
+	}
+	else if (connector->connector_type == DRM_MODE_CONNECTOR_VGA && sdev->vga_edid)
+	{
+		kfree(sdev->vga_edid);
+		sdev->vga_edid = NULL;
+	}
+
+	if(g_specId == SPC_SM768)
+	{
+		hw768_AdaptI2CCleanBus(connector);
+	}
+	else
+	{
+		hw750_AdaptI2CCleanBus(connector);
+	}
+
+#if (KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )
 	drm_connector_unregister(connector);
 #else
 	drm_sysfs_connector_remove(connector);
@@ -1396,6 +1427,7 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 		return NULL;
 
 	connector = &smi_connector->base;
+	smi_connector->i2c_hw_enabled = false;
 
 	switch (index)
 	{
@@ -1411,11 +1443,20 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 		default:
 			printk("error index of Connector\n");
 	}
+
+	if (g_specId == SPC_SM750) 
+	{
+		hw750_AdaptI2CInit(smi_connector);
+	}
+	else
+	{
+		hw768_AdaptI2CInit(smi_connector);
+	}
+
 	drm_connector_helper_add(connector, &smi_vga_connector_helper_funcs);
 	connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
 
-#if ((KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE)
 	drm_connector_register(connector);
 #else
 	drm_sysfs_connector_add(connector);
@@ -1463,8 +1504,7 @@ int smi_modeset_init(struct smi_device *cdev)
 		cdev->dev->mode_config.max_height = 2160;
 		}
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))
 	cdev->dev->mode_config.cursor_width = 64;
 	cdev->dev->mode_config.cursor_height = 64;
 #endif

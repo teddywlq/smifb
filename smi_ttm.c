@@ -142,10 +142,9 @@ smi_bo_evict_flags(struct ttm_buffer_object *bo, struct ttm_placement *pl)
 static int smi_bo_verify_access(struct ttm_buffer_object *bo, struct file *filp)
 {
 	struct smi_bo *smibo = smi_bo(bo);
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)) && !defined(RHEL_RELEASE_VERSION) ) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0))
 	return 0;
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0) && (!defined(RHEL_RELEASE_VERSION))
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
 	return drm_vma_node_verify_access(&smibo->gem.vma_node, filp);
 #else
 	return drm_vma_node_verify_access(&smibo->gem.vma_node, filp->private_data);
@@ -184,8 +183,7 @@ static int smi_ttm_io_mem_reserve(struct ttm_bo_device *bdev,
 static void smi_ttm_io_mem_free(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 {
 }
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0) ) && !defined(RHEL_RELEASE_VERSION) ) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0)) 
 static int smi_bo_move(struct ttm_buffer_object *bo,
 		       bool evict, bool interruptible,
 		       bool no_wait_gpu,
@@ -208,8 +206,7 @@ static struct ttm_backend_func smi_tt_backend_func = {
 };
 
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0) )&& !defined(RHEL_RELEASE_VERSION) ) ||\
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
 struct ttm_tt *smi_ttm_tt_create(struct ttm_buffer_object *bo, uint32_t page_flags)
 #else
 struct ttm_tt *smi_ttm_tt_create(struct ttm_bo_device *bdev, unsigned long size,
@@ -222,8 +219,7 @@ struct ttm_tt *smi_ttm_tt_create(struct ttm_bo_device *bdev, unsigned long size,
 	if (tt == NULL)
 		return NULL;
 	tt->func = &smi_tt_backend_func;
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
 	if (ttm_tt_init(tt, bo, page_flags)) {
 #else
 	if (ttm_tt_init(tt, bdev, size, page_flags, dummy_read_page)) {
@@ -234,8 +230,7 @@ struct ttm_tt *smi_ttm_tt_create(struct ttm_bo_device *bdev, unsigned long size,
 	return tt;
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,16,0)) && !defined(RHEL_RELEASE_VERSION) ) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,6))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,16,0))
 static int smi_ttm_tt_populate(struct ttm_tt *ttm)
 #else
 static int smi_ttm_tt_populate(struct ttm_tt *ttm, struct ttm_operation_ctx *ctx)
@@ -253,8 +248,7 @@ static int smi_ttm_tt_populate(struct ttm_tt *ttm, struct ttm_operation_ctx *ctx
 		return 0;
 	}
 	
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,16,0)) && !defined(RHEL_RELEASE_VERSION) ) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,6))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,16,0))
 	return ttm_pool_populate(ttm);
 #else
 	return ttm_pool_populate(ttm, ctx);
@@ -277,28 +271,24 @@ struct ttm_bo_driver smi_bo_driver = {
 	.ttm_tt_unpopulate = smi_ttm_tt_unpopulate,
 	.init_mem_type = smi_bo_init_mem_type,
 	.evict_flags = smi_bo_evict_flags,
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
 	.eviction_valuable = ttm_bo_eviction_valuable,
 #endif
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0) )  && !defined(RHEL_RELEASE_VERSION) ) \
-	|| (defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0))
 	.move = smi_bo_move,
 #else
 	.move = NULL,
 #endif
-#if ( (LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0) && \
-	LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)) && !defined(RHEL_RELEASE_VERSION) )  || \
-	(defined(RHEL_RELEASE_VERSION) && (RHEL_VERSION_HIGHER_THAN(7,4) && RHEL_VERSION_LOWER_THAN(7,5)))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0) && \
+	LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0))
 	.lru_tail = &ttm_bo_default_lru_tail,
 	.swap_lru_tail = &ttm_bo_default_swap_lru_tail,
 #endif
 	.verify_access = smi_bo_verify_access,
 	.io_mem_reserve = &smi_ttm_io_mem_reserve,
 	.io_mem_free = &smi_ttm_io_mem_free,
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0) && \
-	LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && (RHEL_VERSION_HIGHER_THAN(7,5) && RHEL_VERSION_LOWER_THAN(7,6)))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0) && \
+	LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0))
 	.io_mem_pfn = ttm_bo_default_io_mem_pfn,
 #endif
 };
@@ -319,8 +309,7 @@ int smi_mm_init(struct smi_device *smi)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 				 smi->ttm.bo_global_ref.ref.object,
 #endif
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))				 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))		 
 				 &smi_bo_driver, dev->anon_inode->i_mapping,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,2,0)
 				DRM_FILE_PAGE_OFFSET,
@@ -351,7 +340,7 @@ int smi_mm_init(struct smi_device *smi)
 		return ret;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0) && !defined(RHEL_RELEASE_VERSION))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0))
 	arch_io_reserve_memtype_wc(pci_resource_start(dev->pdev, 0),
 				   pci_resource_len(dev->pdev, 0));
 #endif
@@ -376,7 +365,7 @@ void smi_mm_fini(struct smi_device *smi)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
  	smi_ttm_global_release(smi);
 #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0) && !defined(RHEL_RELEASE_VERSION))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0))
 	arch_io_free_memtype_wc(pci_resource_start(dev->pdev, 0),
 				pci_resource_len(dev->pdev, 0));
 #endif
@@ -391,9 +380,7 @@ void smi_mm_fini(struct smi_device *smi)
 void smi_ttm_placement(struct smi_bo *bo, int domain)
 {
 	u32 c = 0;
-#if ((KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE)  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
-
+#if (KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE)
 	unsigned i;
 	bo->placement.placement = bo->placements;
 	bo->placement.busy_placement = bo->placements;
@@ -433,8 +420,7 @@ void smi_ttm_placement(struct smi_bo *bo, int domain)
 #endif	
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0))
 int smi_bo_create(struct drm_device *dev, int size, int align,
 		  uint32_t flags, struct sg_table *sg, struct smi_bo **psmibo)
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
@@ -470,8 +456,7 @@ int smi_bo_create(struct drm_device *dev, int size, int align,
 	
 
 	smibo->bo.bdev = &smi->ttm.bdev;
-#if ((LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))	
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,0))
 	smibo->bo.bdev->dev_mapping = dev->dev_mapping;
 #endif
 	smi_ttm_placement(smibo, TTM_PL_FLAG_VRAM | TTM_PL_FLAG_SYSTEM);
@@ -482,13 +467,11 @@ int smi_bo_create(struct drm_device *dev, int size, int align,
 	ret = ttm_bo_init(&smi->ttm.bdev, &smibo->bo, size,
 			  type, &smibo->placement,
 			  align >> PAGE_SHIFT, false,
-#if ((LINUX_VERSION_CODE <= KERNEL_VERSION(4,16,0)) && !defined(RHEL_RELEASE_VERSION) )  || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,6))	
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4,16,0))
 			  NULL,
 #endif
 			  acc_size, sg,
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,18,0)) && !defined(RHEL_RELEASE_VERSION) )  || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,18,0))
 			  resv,
 #endif			   
 			  smi_bo_ttm_destroy);
@@ -512,8 +495,7 @@ static inline u64 smi_bo_gpu_offset(struct smi_bo *bo)
 int smi_bo_pin(struct smi_bo *bo, u32 pl_flag, u64 *gpu_addr)
 {
 	int i, ret;
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0) ) && !defined(RHEL_RELEASE_VERSION) )  || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
 	struct ttm_operation_ctx ctx = { false, false };
 #endif
 
@@ -525,15 +507,13 @@ int smi_bo_pin(struct smi_bo *bo, u32 pl_flag, u64 *gpu_addr)
 
 	smi_ttm_placement(bo, pl_flag);
 	for (i = 0; i < bo->placement.num_placement; i++)
-#if ((KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE)
 		bo->placements[i].flags |= TTM_PL_FLAG_NO_EVICT;
 #else
 		bo->placements[i] |= TTM_PL_FLAG_NO_EVICT;
 #endif	
 	
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)) && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
 	ret = ttm_bo_validate(&bo->bo, &bo->placement, &ctx);
 #else
 	ret = ttm_bo_validate(&bo->bo, &bo->placement, false, false);
@@ -550,8 +530,7 @@ int smi_bo_pin(struct smi_bo *bo, u32 pl_flag, u64 *gpu_addr)
 int smi_bo_unpin(struct smi_bo *bo)
 {
 	int i, ret;
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0) )  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0)) 
 	struct ttm_operation_ctx ctx = { false, false };
 #endif
 	if (!bo->pin_count) {
@@ -563,14 +542,12 @@ int smi_bo_unpin(struct smi_bo *bo)
 		return 0;
 
 	for (i = 0; i < bo->placement.num_placement ; i++)
-#if ((KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE	)  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if ((KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE))
 		bo->placements[i].flags &= ~TTM_PL_FLAG_NO_EVICT;
 #else
 		bo->placements[i] &= ~TTM_PL_FLAG_NO_EVICT;
 #endif		
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))  && !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
 	ret = ttm_bo_validate(&bo->bo, &bo->placement, &ctx);
 #else
 	ret = ttm_bo_validate(&bo->bo, &bo->placement, false, false);
@@ -588,8 +565,7 @@ int smi_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct smi_device *smi;
 
 	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET))
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0) ) && !defined(RHEL_RELEASE_VERSION) )  || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))
 		return -EINVAL;
 #else
 		return drm_mmap(filp, vma);

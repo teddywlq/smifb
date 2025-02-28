@@ -14,12 +14,10 @@
 #include "hw750.h"
 #include "hw768.h"
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0))
 #include <drm/drm_plane_helper.h>
 #endif
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 #include <drm/drm_atomic_helper.h>
 #endif
 
@@ -244,8 +242,7 @@ void colorcur2monocur(void * data)
 	}
 }
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0) )&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 int smi_plane_atomic_check(struct drm_plane *plane,
 			   struct drm_plane_state *state)
 {
@@ -363,8 +360,7 @@ void smi_cursor_atomic_disable(struct drm_plane *plane,
 
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0) ) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0))
 static int smi_plane_prepare_fb(struct drm_plane *plane, const struct drm_plane_state *new_state)
 #else
 static int smi_plane_prepare_fb(struct drm_plane *plane, struct drm_plane_state *new_state)
@@ -478,8 +474,7 @@ static const uint32_t smi_cursor_plane_formats[] = {DRM_FORMAT_RGB565, DRM_FORMA
 static const uint32_t smi_formats[] = {DRM_FORMAT_RGB565,DRM_FORMAT_RGB888,
 	DRM_FORMAT_XRGB8888, DRM_FORMAT_RGBA8888, DRM_FORMAT_ARGB8888};
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0) ) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 static int smi_plane_update(struct drm_plane *plane, struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			int crtc_x, int crtc_y, unsigned int crtc_w, unsigned int crtc_h,
 			uint32_t src_x, uint32_t src_y, uint32_t src_w, uint32_t src_h)
@@ -489,14 +484,12 @@ static int smi_plane_update(struct drm_plane *plane, struct drm_crtc *crtc, stru
 			uint32_t src_x, uint32_t src_y, uint32_t src_w, uint32_t src_h, struct drm_modeset_acquire_ctx *ctx)
 #endif
 {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0) ) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))
 	return 0;
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)) && !defined(RHEL_RELEASE_VERSION) 
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0))
 	return drm_primary_helper_update(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h, src_x, src_y, src_w, src_h);
-#elif ((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 		return drm_primary_helper_update(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h, src_x, src_y, src_w, src_h);
@@ -522,20 +515,17 @@ static int smi_plane_update(struct drm_plane *plane, struct drm_crtc *crtc, stru
 #endif
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 static int smi_plane_disable(struct drm_plane *plane)
 #else
 static int smi_plane_disable(struct drm_plane *plane, struct drm_modeset_acquire_ctx *ctx)
 #endif
 {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))
 	return -EINVAL;
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)&& !defined(RHEL_RELEASE_VERSION) )
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0))
 	return drm_primary_helper_disable(plane);
-#elif ((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))&& !defined(RHEL_RELEASE_VERSION)) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 		return drm_primary_helper_disable(plane);
 	else
@@ -556,8 +546,7 @@ static int smi_plane_disable(struct drm_plane *plane, struct drm_modeset_acquire
 
 static void smi_plane_destroy(struct drm_plane *plane)
 {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 	smi_plane_disable(plane);
 #else
 	smi_plane_disable(plane, NULL);
@@ -572,8 +561,7 @@ static struct drm_plane_funcs smi_plane_funcs = {
 	.destroy	= smi_plane_destroy,
 };
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 static const struct drm_plane_helper_funcs smi_cursor_helper_funcs = {
 	.atomic_check = smi_plane_atomic_check,
 	.atomic_update = smi_cursor_atomic_update,
@@ -587,8 +575,7 @@ static const struct drm_plane_helper_funcs smi_cursor_helper_funcs = {
 
 
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))
 struct drm_plane *smi_plane_init(struct smi_device *cdev,unsigned int possible_crtcs)
 #else
 struct drm_plane *smi_plane_init(struct smi_device *cdev,unsigned int possible_crtcs, enum drm_plane_type type)
@@ -599,13 +586,11 @@ struct drm_plane *smi_plane_init(struct smi_device *cdev,unsigned int possible_c
 	const uint32_t *formats;
 	struct drm_plane *plane;
 	const struct drm_plane_funcs *funcs;
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 	const struct drm_plane_helper_funcs *helper_funcs;
 #endif
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0))&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0))
 	funcs = &smi_plane_funcs;
 	formats = smi_formats;
 	num_formats = ARRAY_SIZE(smi_formats);
@@ -632,17 +617,15 @@ struct drm_plane *smi_plane_init(struct smi_device *cdev,unsigned int possible_c
 	if (!plane)
 		return ERR_PTR(-ENOMEM);
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))&& !defined(RHEL_RELEASE_VERSION) ) || \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))
 	err = drm_plane_init(cdev->dev, plane, possible_crtcs,
 						   funcs, formats, num_formats,
 						   false);
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0)&& !defined(RHEL_RELEASE_VERSION) )
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0))
 	err = drm_universal_plane_init(cdev->dev, plane, possible_crtcs,
 						   funcs, formats, num_formats,
 						   type);
-#elif ((LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))
 	err = drm_universal_plane_init(cdev->dev, plane, possible_crtcs,
 						   funcs, formats, num_formats,
 						   type, NULL);
@@ -655,8 +638,7 @@ struct drm_plane *smi_plane_init(struct smi_device *cdev,unsigned int possible_c
 	if (err)
 		goto free_plane;
 	
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
 	drm_plane_helper_add(plane, helper_funcs);
 #endif
 	

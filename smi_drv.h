@@ -13,41 +13,36 @@
 #include "smi_ver.h"
 
 #include <video/vga.h>
+#include <drm/drm_crtc.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_edid.h>
 
-#ifdef RHEL_RELEASE_VERSION
-#define RHEL_VERSION_HIGHER_THAN(a,b) (RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(a,b))
-#define RHEL_VERSION_LOWER_THAN(a,b) (RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(a,b))
-#else
-#define RHEL_VERSION_HIGHER_THAN(a,b) 0
-#define RHEL_VERSION_LOWER_THAN(a,b) 0
-#endif
-
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0))
 #include <drm/drm_encoder.h>
 #endif
 
+#include <drm/drmP.h>
 #include <drm/ttm/ttm_bo_api.h>
 #include <drm/ttm/ttm_bo_driver.h>
 #include <drm/ttm/ttm_placement.h>
 #include <drm/ttm/ttm_memory.h>
 #include <drm/ttm/ttm_module.h>
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
 #include <drm/drm_gem.h>
 #endif
+
+#include <linux/i2c-algo-bit.h>
+#include <linux/i2c.h>
 
 #define DRIVER_AUTHOR		"SiliconMotion"
 
 #define DRIVER_NAME		"smifb"
 #define DRIVER_DESC		"SiliconMotion GPU DRM Driver"
-#define DRIVER_DATE		"20240921"
+#define DRIVER_DATE		"20250225"
 
 #define DRIVER_MAJOR		1
 #define DRIVER_MINOR		4
-#define DRIVER_PATCHLEVEL	0
+#define DRIVER_PATCHLEVEL	1
 
 #define SMIFB_CONN_LIMIT 3
 
@@ -57,7 +52,7 @@
 #define SUPPORT_CHIP " \t\tSM750, SM768\n"
 
 
-#define _version_	"1.4.0.0"
+#define _version_	"1.4.1.0"
 
 #undef  NO_WC
 
@@ -194,7 +189,18 @@ struct smi_encoder {
 
 struct smi_connector {
 	struct drm_connector		base;
+	struct i2c_adapter adapter;
+	struct i2c_algo_bit_data bit_data;
+	unsigned char i2c_scl;
+	unsigned char i2c_sda;
+	unsigned char i2cNumber;
+	bool i2c_hw_enabled;
 };
+
+static inline struct smi_connector *to_smi_connector(struct drm_connector *connector)
+{
+	return container_of(connector, struct smi_connector, base);
+}
 
 struct smi_framebuffer {
 	struct drm_framebuffer		base;
@@ -236,9 +242,9 @@ struct smi_device {
 	bool mm_inited;
 	struct smi_750_register *regsave;
 	struct smi_768_register *regsave_768;
-    struct edid dvi_edid[2];
-	struct edid vga_edid[2];
-	struct edid hdmi_edid[2];
+    void *dvi_edid;
+	void *vga_edid;
+	void *hdmi_edid;
 	bool is_hdmi;
 };
 
@@ -257,8 +263,7 @@ struct smi_bo {
 	struct ttm_placement placement;
 	struct ttm_bo_kmap_obj kmap;
 	struct drm_gem_object gem;
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))
 	struct ttm_place placements[3];
 #else
 	u32 placements[3];
@@ -328,29 +333,26 @@ void smi_fb_zfill(struct drm_device *dev, struct smi_fbdev *gfbdev);
 void smi_driver_irq_preinstall(struct drm_device *dev);
 int smi_driver_irq_postinstall(struct drm_device *dev);
 void smi_driver_irq_uninstall(struct drm_device *dev);
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0)		)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))		
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,0))	
 irqreturn_t smi_driver_irq_handler(int irq, void *arg);
 #else
 irqreturn_t smi_driver_irq_handler(DRM_IRQ_ARGS);
 #endif
 				/* smi_kms.c */
 int smi_driver_load(struct drm_device *dev, unsigned long flags);
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,5))	
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 void smi_driver_unload(struct drm_device *dev);
 #else
 int smi_driver_unload(struct drm_device *dev);
 #endif
-extern struct drm_ioctl_desc smi_ioctls[];
-extern int smi_max_ioctl;
+//extern struct drm_ioctl_desc smi_ioctls[];
+//extern int smi_max_ioctl;
 
 int smi_mm_init(struct smi_device *smi);
 void smi_mm_fini(struct smi_device *smi);
 void smi_ttm_placement(struct smi_bo *bo, int domain);
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0)	)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0))
 int smi_bo_create(struct drm_device *dev, int size, int align, 
 		  uint32_t flags, struct sg_table *sg, struct smi_bo **psmibo);
 #else
@@ -365,8 +367,7 @@ void hw750_suspend(struct smi_750_register * pSave);
 void hw750_resume(struct smi_750_register * pSave);
 
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0))
 struct drm_plane *smi_plane_init(struct smi_device *cdev, unsigned int possible_crtcs);
 #else
 struct drm_plane *smi_plane_init(struct smi_device *cdev, unsigned int possible_crtcs, enum drm_plane_type type);
@@ -375,8 +376,7 @@ struct drm_plane *smi_plane_init(struct smi_device *cdev, unsigned int possible_
 static inline int smi_bo_reserve(struct smi_bo *bo, bool no_wait)
 {
 	int ret;
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))	
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))
 	ret = ttm_bo_reserve(&bo->bo, true, no_wait, false, NULL);
 #else
 	ret = ttm_bo_reserve(&bo->bo, true, no_wait, NULL);
@@ -420,8 +420,7 @@ struct reservation_object *smi_gem_prime_res_obj(struct drm_gem_object *obj);
 
 
 
-#if ((KERNEL_VERSION(4, 12, 0) > LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))	
+#if (KERNEL_VERSION(4, 12, 0) > LINUX_VERSION_CODE)
 int smi_crtc_page_flip(struct drm_crtc *crtc,struct drm_framebuffer *fb,
     struct drm_pending_vblank_event *event, uint32_t page_flip_flags);
 #else

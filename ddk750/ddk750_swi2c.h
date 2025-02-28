@@ -1,17 +1,8 @@
-/*******************************************************************
-* 
-*         Copyright (c) 2007 by Silicon Motion, Inc. (SMI)
-* 
-*  All rights are reserved. Reproduction or in part is prohibited
-*  without the written consent of the copyright owner.
-* 
-*  swi2c.h --- SM750/SM718 DDK 
-*  This file contains the definitions for i2c using software 
-*  implementation.
-* 
-*******************************************************************/
 #ifndef _SWI2C_H_
 #define _SWI2C_H_
+
+#include "../smi_drv.h"
+
 
 /* Default i2c CLK and Data GPIO. These are the default i2c pins */
 #define DEFAULT_I2C_SCL                     30
@@ -111,5 +102,10 @@ void swI2CSCL(unsigned char value);
  *      value	- Bit value to set to the SCL or SDA (0 = low, 1 = high)
  */
 void swI2CSDA(unsigned char value);
+
+long ddk750_AdaptSWI2CInit(struct smi_connector *smi_connector);
+
+long ddk750_AdapSWI2CCleanBus(struct smi_connector *connector);
+
 
 #endif  /* _SWI2C_H_ */

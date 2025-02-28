@@ -19,6 +19,9 @@
 #include "ddk768/ddk768_video.h"
 #include "ddk768/ddk768_hdmi.h"
 #include "ddk768/ddk768_pwm.h"
+#include "ddk768/ddk768_swi2c.h"
+#include "ddk768/ddk768_hwi2c.h"
+#include <linux/delay.h>
 
 
 extern int lcd_scale;
@@ -33,7 +36,7 @@ struct smi_768_register{
 };
 
 
-mode_parameter_t convert_drm_mode_to_ddk_mode(struct drm_display_mode mode)
+static mode_parameter_t convert_drm_mode_to_ddk_mode(struct drm_display_mode mode)
 {
 	mode_parameter_t modeP;
 
@@ -56,7 +59,7 @@ mode_parameter_t convert_drm_mode_to_ddk_mode(struct drm_display_mode mode)
     modeP.vertical_frequency = 0;
     
     /* Clock Phase. This clock phase only applies to Panel. */
-    modeP.clock_phase_polarity = POS;
+	modeP.clock_phase_polarity = NEG;
 
 	return modeP;
 }
@@ -439,5 +442,64 @@ void hw768_load_lut(disp_control_t dispCtrl, int size, u8 lut_r[], u8 lut_g[], u
 		pokeRegisterDWord(regCtrl + (i * 4), v);
 	}
 }
+
+
+
+long hw768_AdaptI2CInit(struct smi_connector *smi_connector)
+{
+#if 0
+	if(hwi2c_en)
+    {
+        smi_connector->i2c_hw_enabled = 1;
+    }
+    else
+    {
+        smi_connector->i2c_hw_enabled = 0;      
+    }
+
+    if(smi_connector->i2c_hw_enabled)
+    {
+        return ddk768_AdaptHWI2CInit(smi_connector);
+    }
+    else
+    {
+        return ddk768_AdaptSWI2CInit(smi_connector); 
+    }
+#endif
+	struct drm_connector *connector = &smi_connector->base;
+    switch(connector->connector_type){
+	case DRM_MODE_CONNECTOR_DVII:
+	case DRM_MODE_CONNECTOR_VGA:
+	    if(hwi2c_en){
+			smi_connector->i2c_hw_enabled = 1;
+			return ddk768_AdaptHWI2CInit(smi_connector);
+		}
+		break;
+	case DRM_MODE_CONNECTOR_HDMIA:
+	default:
+		break;
+
+   }
+	smi_connector->i2c_hw_enabled = 0; 
+	
+	return ddk768_AdaptSWI2CInit(smi_connector); 
+
+}
+
+
+long hw768_AdaptI2CCleanBus(struct drm_connector *connector)
+{
+        struct smi_connector *smi_connector = to_smi_connector(connector);
+    
+    if(smi_connector->i2c_hw_enabled)
+    {
+        return ddk768_AdaptHWI2CCleanBus(smi_connector);
+    }
+    else
+    {
+        return ddk768_AdaptSWI2CCleanBus(smi_connector);
+    }
+}
+
 
 

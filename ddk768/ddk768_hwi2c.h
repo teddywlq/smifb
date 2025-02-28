@@ -1,19 +1,15 @@
-/*******************************************************************
-* 
-*         Copyright (c) 2008 by Silicon Motion, Inc. (SMI)
-* 
-*  All rights are reserved. Reproduction or in part is prohibited
-*  without the written consent of the copyright owner.
-* 
-*  hwi2c.H --- SMI DDK 
-*  This file contains the definitions for Hardware I2C.
-* 
-*******************************************************************/
 #ifndef _DDK768_HWI2C_H_
 #define _DDK768_HWI2C_H_
 
+
+#include "../smi_drv.h"
+
+
 #define MAX_HWI2C_FIFO 16
 #define HWI2C_WAIT_TIMEOUT 0x7FF
+
+extern const struct i2c_algorithm ddk768_i2c_algo;
+
 
 /*
  *  This function initializes the hardware i2c
@@ -65,5 +61,10 @@ long ddk768_hwI2CWriteReg(
     unsigned char registerIndex, 
     unsigned char data
 );
+
+long ddk768_AdaptHWI2CInit(struct smi_connector *connector);
+long ddk768_AdaptHWI2CCleanBus(struct smi_connector *connector);
+
+
 
 #endif  /* _HWI2C_H_ */

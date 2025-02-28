@@ -29,8 +29,7 @@ int smi_handle_damage(struct smi_framebuffer *fb, int x, int y,
 	void *dst = NULL;
 	struct smi_bo *dst_bo = NULL;
 	
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,5))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 	unsigned bytesPerPixel = fb->base.format->cpp[0];
 #else
 	unsigned bytesPerPixel = (fb->base.bits_per_pixel >> 3);
@@ -90,8 +89,7 @@ static void smi_user_framebuffer_destroy(struct drm_framebuffer *fb)
 {
 	struct smi_framebuffer *smi_fb = to_smi_framebuffer(fb);
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0))
 	if (smi_fb->obj)
 #endif	
 	{
@@ -120,8 +118,7 @@ static int smi_user_framebuffer_dirty(struct drm_framebuffer *fb,
     struct smi_framebuffer *smi_fb = to_smi_framebuffer(fb);
     int i, ret = 0;
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 	drm_modeset_lock_all(fb->dev);
 #else
 	mutex_lock(&fb->dev->mode_config.mutex);
@@ -129,8 +126,7 @@ static int smi_user_framebuffer_dirty(struct drm_framebuffer *fb,
 
 	if (smi_fb->obj->import_attach) {
 		ret = dma_buf_begin_cpu_access(smi_fb->obj->import_attach->dmabuf,
-#if ((KERNEL_VERSION(4, 6, 0) > LINUX_VERSION_CODE)&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (KERNEL_VERSION(4, 6, 0) > LINUX_VERSION_CODE)
 					    0, smi_fb->obj->size,
 #endif
 					    DMA_FROM_DEVICE);
@@ -147,16 +143,14 @@ static int smi_user_framebuffer_dirty(struct drm_framebuffer *fb,
 	
 	if (smi_fb->obj->import_attach) {
 	   dma_buf_end_cpu_access(smi_fb->obj->import_attach->dmabuf,
-#if ((KERNEL_VERSION(4, 6, 0) > LINUX_VERSION_CODE )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,3))
+#if (KERNEL_VERSION(4, 6, 0) > LINUX_VERSION_CODE )
 					   0, smi_fb->obj->size,
 #endif
 					   DMA_FROM_DEVICE);
 	   }
 	
 unlock:
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,3))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 	drm_modeset_unlock_all(fb->dev);
 #else
 	mutex_unlock(&fb->dev->mode_config.mutex);
@@ -193,8 +187,7 @@ int smi_framebuffer_init(struct drm_device *dev,
 {
 	int ret;
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,5))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 		drm_helper_mode_fill_fb_struct(dev, &gfb->base, mode_cmd);
 #else
 		drm_helper_mode_fill_fb_struct(&gfb->base, mode_cmd);
@@ -218,8 +211,7 @@ smi_user_framebuffer_create(struct drm_device *dev,
 	int ret;
 	
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0))
 	obj = drm_gem_object_lookup(dev, filp, mode_cmd->handles[0]);
 #else
 	obj = drm_gem_object_lookup(filp, mode_cmd->handles[0]);
@@ -229,8 +221,7 @@ smi_user_framebuffer_create(struct drm_device *dev,
 
 	smi_fb = kzalloc(sizeof(*smi_fb), GFP_KERNEL);
 	if (!smi_fb) {
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))
 		drm_gem_object_put_unlocked(obj);
 #else
 		drm_gem_object_unreference_unlocked(obj);
@@ -240,8 +231,7 @@ smi_user_framebuffer_create(struct drm_device *dev,
 
 	ret = smi_framebuffer_init(dev, smi_fb, mode_cmd, obj);
 	if (ret) {
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))
 		drm_gem_object_put_unlocked(obj);
 #else
 		drm_gem_object_unreference_unlocked(obj);
@@ -439,8 +429,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	drm_vblank_init(dev, dev->mode_config.num_crtc);
 
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,2))	
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
 	r = drm_irq_install(dev, dev->pdev->irq);
 #else
 	r = drm_irq_install(dev);
@@ -472,8 +461,7 @@ out:
 	return r;
 }
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,5))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 void smi_driver_unload(struct drm_device *dev)
 #else
 int smi_driver_unload(struct drm_device *dev)
@@ -487,14 +475,12 @@ int smi_driver_unload(struct drm_device *dev)
 
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && \
-	(LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+	(LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)))
 		drm_vblank_cleanup(dev);
 #endif
 
 	if (cdev == NULL)
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 		return;
 #else
 		return 0;
@@ -520,8 +506,7 @@ int smi_driver_unload(struct drm_device *dev)
 	vfree(cdev->regsave);
 	kfree(cdev);
 	dev->dev_private = NULL;
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,5))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0))
 	return 0;
 #endif
 
@@ -540,8 +525,7 @@ int smi_gem_create(struct drm_device *dev,
 	if (size == 0)
 		return -EINVAL;
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0))&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0))
 	ret = smi_bo_create(dev, size, 0, 0, NULL, &smibo);
 #else
 	ret = smi_bo_create(dev, size, 0, 0, NULL, NULL, &smibo);
@@ -627,8 +611,7 @@ void smi_gem_free_object(struct drm_gem_object *obj)
 
 static inline u64 smi_bo_mmap_offset(struct smi_bo *bo)
 {
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0) )&& !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,2))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0))
 	return bo->bo.addr_space_offset;
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
 	return drm_vma_node_offset_addr(&bo->bo.vma_node);
@@ -645,8 +628,7 @@ smi_dumb_mmap_offset(struct drm_file *file,
 {
 	struct drm_gem_object *obj;
 	struct smi_bo *bo;
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,4))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0))
 	obj = drm_gem_object_lookup(file, handle);
 	if (obj == NULL) 
 		return -ENOENT;
@@ -654,8 +636,7 @@ smi_dumb_mmap_offset(struct drm_file *file,
 	bo = gem_to_smi_bo(obj);
 	*offset = smi_bo_mmap_offset(bo);
 
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_HIGHER_THAN(7,6))
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))
 	drm_gem_object_put_unlocked(obj);
 #else
 	drm_gem_object_unreference_unlocked(obj);
@@ -682,8 +663,7 @@ out_unlock:
 }
 
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)) && !defined(RHEL_RELEASE_VERSION) )|| \
-	(defined(RHEL_RELEASE_VERSION) && RHEL_VERSION_LOWER_THAN(7,4))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0))
 int smi_dumb_destroy(struct drm_file *file,
 		     struct drm_device *dev,
 		     uint32_t handle)

@@ -992,8 +992,10 @@ unsigned char ddk768_edidGetExtension(
     return 0;
 }
 
-#if 0
+
 #define EDID_TOTAL_RETRY_COUNTER            1
+
+#if 0
 /*
  *  ddk768_edidReadMonitor
  *      This function reads the EDID structure from the attached monitor
@@ -1086,6 +1088,7 @@ long ddk768_edidReadMonitorEx(
 
     return edidSize;
 }
+#endif
 
 /*
  *  This function is same as editReadMonitorEx(), but using HW I2C.
@@ -1200,7 +1203,7 @@ long ddk768_edidReadMonitorExHwI2C(
     return edidSize;
 }
 
-
+#if 0
 
 /*
  *  ddk768_edidReadMonitor
@@ -1304,6 +1307,8 @@ long ddk768_edidHeaderReadMonitorEx(
     return 0;
 }
 
+#endif
+
 long ddk768_edidHeaderReadMonitorExHwI2C(
     unsigned char i2cNumber
 )
@@ -1329,7 +1334,7 @@ long ddk768_edidHeaderReadMonitorExHwI2C(
     }
 
 	/* Finish using HW I2C, we can close the device. */
-    ddk768_hwI2CClose(i2cNumber);
+    //ddk768_hwI2CClose(i2cNumber);
 
     /*
      *  The monitor might not be DDC2B compliance. Therefore, need to use DDC1 protocol,
@@ -1342,13 +1347,13 @@ long ddk768_edidHeaderReadMonitorExHwI2C(
          * only an acknowledge flag, which could be high or low. However, SCL line
          * is not used. Instead the data is clock-in using vertical sync.
          */
-        return (-1);
+        return 0;
     }
 
-    return 0;
+    return 1;
 }
 
-#endif
+
 
 /*
  *  ddk768_edidGetEstablishedTiming

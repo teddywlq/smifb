@@ -1425,7 +1425,7 @@ long ddk750_edidHeaderReadMonitorExHwI2C(void)
     }
 
 	/* Finish using HW I2C, we can close the device. */
-    ddk750_hwI2CClose();
+    //ddk750_hwI2CClose();
 
     /*
      *  The monitor might not be DDC2B compliance. Therefore, need to use DDC1 protocol,
@@ -1438,10 +1438,10 @@ long ddk750_edidHeaderReadMonitorExHwI2C(void)
          * only an acknowledge flag, which could be high or low. However, SCL line
          * is not used. Instead the data is clock-in using vertical sync.
          */
-        return (-1);
+        return 0;
     }
 
-    return 0;
+    return 1;
 }
 
 

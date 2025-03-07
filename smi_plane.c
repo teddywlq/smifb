@@ -22,8 +22,6 @@
 #endif
 
 
-extern struct smi_crtc * smi_crtc_tab[MAX_CRTC];
-extern struct drm_encoder * smi_enc_tab[MAX_ENCODER];
 extern int g_m_connector;//bit 0: DVI, bit 1: VGA, bit 2: HDMI.
 
 
@@ -261,8 +259,8 @@ static void smi_cursor_atomic_update(struct drm_plane *plane,struct drm_plane_st
 	int x, y;
 	struct smi_crtc * smi_crtc = to_smi_crtc(crtc);	
 	disp_control_t disp_crtc;
-	int i, ctrl_index, max_enc;
-	ctrl_index = 0;
+	int i, ctrl_index = 0, max_enc = 0;
+	struct smi_device *sdev = plane->dev->dev_private;
 
 	if (!plane->state->crtc || !plane->state->fb)
 		return;
@@ -275,7 +273,7 @@ static void smi_cursor_atomic_update(struct drm_plane *plane,struct drm_plane_st
 
 	for(i = 0;i < max_enc; i++)
 	{
-		if(crtc == smi_enc_tab[i]->crtc)
+		if(crtc == sdev->smi_enc_tab[i]->crtc)
 		{
 			ctrl_index = i;
 			break;
@@ -374,8 +372,9 @@ static int smi_plane_prepare_fb(struct drm_plane *plane, struct drm_plane_state 
 
 	disp_control_t disp_crtc;
 	int i = 0, ctrl_index = 0, max_enc = 0;
+	struct smi_device *sdev = plane->dev->dev_private;
 	ENTER();
-	ctrl_index = 0;
+
 
 	if(g_specId == SPC_SM750)
 		max_enc = MAX_CRTC;
@@ -384,7 +383,7 @@ static int smi_plane_prepare_fb(struct drm_plane *plane, struct drm_plane_state 
 
 	for(i = 0;i < max_enc; i++)
 	{
-		if(crtc == smi_enc_tab[i]->crtc)
+		if(crtc == sdev->smi_enc_tab[i]->crtc)
 		{
 			ctrl_index = i;
 			break;

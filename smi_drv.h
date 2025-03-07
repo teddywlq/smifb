@@ -208,11 +208,6 @@ struct smi_framebuffer {
 	void* vmapping;
 };
 
-struct smi_mc {
-	resource_size_t			vram_size;
-	resource_size_t			vram_base;
-};
-
 struct smi_750_register;
 struct smi_768_register;
 
@@ -224,9 +219,13 @@ struct smi_device {
 
 	resource_size_t			rmmio_base;
 	resource_size_t			rmmio_size;
+	resource_size_t			vram_size;
+	resource_size_t			vram_base;
 	void __iomem			*rmmio;
+	void __iomem 			*vram;
 
-	struct smi_mc			mc;
+	struct drm_encoder *smi_enc_tab[MAX_ENCODER];
+
 	struct smi_mode_info		mode_info;
 
 	int				num_crtc;

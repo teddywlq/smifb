@@ -260,29 +260,42 @@ static void smi_vram_fini(struct smi_device *cdev)
 {
 	iounmap(cdev->rmmio);
 	cdev->rmmio = NULL;
-	if (cdev->mc.vram_base)
-		release_mem_region(cdev->mc.vram_base, cdev->mc.vram_size);
+	iounmap(cdev->vram);
+	cdev->vram = NULL;
+
+	if (cdev->vram_base)
+		release_mem_region(cdev->vram_base, cdev->vram_size);
 }
 
 /* Map the framebuffer from the card and configure the core */
 static int smi_vram_init(struct smi_device *cdev)
 {
 	/* BAR 0 is VRAM */
-	cdev->mc.vram_base = pci_resource_start(cdev->dev->pdev, 0);
+	cdev->vram_base = pci_resource_start(cdev->dev->pdev, 0);
 
 	/* VRAM Size */
 	if(g_specId == SPC_SM750)
-		cdev->mc.vram_size = ddk750_getFrameBufSize();
+		cdev->vram_size = ddk750_getFrameBufSize();
 	else
-		cdev->mc.vram_size = ddk768_getFrameBufSize();
+		cdev->vram_size = ddk768_getFrameBufSize();
 
 #if 0
-	if (!request_mem_region(cdev->mc.vram_base, cdev->mc.vram_size,
+	if (!request_mem_region(cdev->vram_base, cdev->vram_size,
 				"smidrmfb_vram")) {
 		DRM_ERROR("can't reserve VRAM\n");
 		return -ENXIO;
 	}
 #endif
+
+#ifdef NO_WC
+	cdev->vram = ioremap(cdev->vram_base, cdev->vram_size);
+#else
+	cdev->vram = ioremap_wc(cdev->vram_base, cdev->vram_size);
+#endif
+
+	if (cdev->vram == NULL)
+		return -ENOMEM;
+
 	return 0;
 }
 

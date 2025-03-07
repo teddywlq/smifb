@@ -173,7 +173,7 @@ int smi_ehci_init(struct drm_device *dev)
         }
 
 
-         phymem = sdev->mc.vram_base + 0x7f00000;
+         phymem = sdev->vram_base + 0x7f00000;
          phymem_len = 1 * 1024 * 1024;
 #if 0
 		/*

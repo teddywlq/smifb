@@ -646,27 +646,15 @@ static int snd_falconi2s_create(struct snd_card *card,
 	
 
 	//map video memory. 
-	chip->vidmem_start = smi_device->mc.vram_base;
+	chip->vidmem_start = smi_device->vram_base;
 	chip->vidmem_size = 0x200000;   // change the video memory temperarily
+
 	dbg_msg("video memory phyAddr = 0x%lx, size = (Dec)%ld bytes\n",
 		chip->vidmem_start,chip->vidmem_size);
 
-#ifdef NO_WC
-	chip->pvMem = ioremap(chip->vidmem_start,chip->vidmem_size);
-#else
-	chip->pvMem = ioremap_wc(chip->vidmem_start,chip->vidmem_size);
-#endif
+	chip->pvMem = smi_device->vram;
+	dbg_msg("Audio video memory virtual addr = %p\n",chip->pvMem);
 
-
-	if(!chip->pvMem){
-		err_msg("Map video memory failed\n");
-		snd_falconi2s_free(chip);
-		err = -EFAULT;
-		return err;
-	}else{
-		dbg_msg("Audio video memory virtual addr = %p\n",chip->pvMem);
-	}
-	//above 
 
 	chip->irq = pdev->irq;
 
@@ -685,7 +673,7 @@ static int snd_falconi2s_create(struct snd_card *card,
 	SM768_AudioStart();
 
 	//clear SRAM
-	memset_io(chip->pvReg + SRAM_OUTPUT_BASE, 0, SRAM_TOTAL_SIZE);
+	memset32((void *)((unsigned long)chip->pvReg + SRAM_OUTPUT_BASE), 0, SRAM_TOTAL_SIZE/4);
 	
 	chip_irq_id=chip;/*Record chip_irq_id which will use in free_irq*/
 	dbg_msg("chip_irq_id=%p\n", chip_irq_id);
@@ -799,8 +787,7 @@ void smi_audio_remove(struct drm_device *dev)
 	SM768_AudioDeinit();
 
 	snd_card_free(card);
-	
-	iounmap(chip_irq_id->pvMem);
+
 }
 
 void smi_audio_resume()

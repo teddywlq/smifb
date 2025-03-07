@@ -29,10 +29,6 @@
 #include "ddk768/ddk768_chip.h"
 
 
-
-struct smi_crtc * smi_crtc_tab[MAX_CRTC];
-struct drm_encoder * smi_enc_tab[MAX_ENCODER];
-
 int g_m_connector = 0;//bit 0: DVI, bit 1: VGA, bit 2: HDMI.
 
 unsigned char HDMI_connector_detect(void);
@@ -69,6 +65,8 @@ static int smi_crtc_gamma_set(struct drm_crtc *crtc, u16 *r, u16 *g,
 	
 	struct smi_crtc *smi_crtc = to_smi_crtc(crtc); 
 	int i , max_index = 2, ctrl_index, dst_ctrl;
+	struct smi_device *sdev = crtc->dev->dev_private;
+	
 	ctrl_index = 0;
 	dst_ctrl = 0;
 
@@ -78,7 +76,7 @@ static int smi_crtc_gamma_set(struct drm_crtc *crtc, u16 *r, u16 *g,
 		
 	for(i = 0;i < max_index; i++)
 	{
-		if(crtc == smi_enc_tab[i]->crtc)
+		if(crtc == sdev->smi_enc_tab[i]->crtc)
 		{
 			ctrl_index = i;
 			break;
@@ -151,6 +149,7 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 	struct smi_bo *bo;
 	struct smi_framebuffer *smi_fb;
 	struct smi_crtc *smi_crtc = to_smi_crtc(crtc); 
+	struct smi_device *sdev = crtc->dev->dev_private;
 
 	ENTER();
 
@@ -205,11 +204,11 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 		if (g_specId == SPC_SM750)
 		{
 
-			if (crtc == smi_enc_tab[0]->crtc)
+			if (crtc == sdev->smi_enc_tab[0]->crtc)
 			{
 				hw750_set_base(SMI0_CTRL, pitch, base_addr);
 			}
-			if (crtc == smi_enc_tab[1]->crtc)
+			if (crtc == sdev->smi_enc_tab[1]->crtc)
 			{
 				hw750_set_base(SMI1_CTRL, pitch, base_addr);
 			}
@@ -227,7 +226,8 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 static int smi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 			     struct drm_framebuffer *old_fb)
 {
-	
+
+	struct smi_device *sdev = crtc->dev->dev_private;
 	int i, ctrl_index, dst_ctrl, ret, max_index = 2;
 	ENTER();
 	ret = 0;
@@ -240,7 +240,7 @@ static int smi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	
 	for(i = 0;i < max_index; i++)
 	{
-		if(crtc == smi_enc_tab[i]->crtc)
+		if(crtc == sdev->smi_enc_tab[i]->crtc)
 		{
 			ctrl_index = i;
 			break;
@@ -287,7 +287,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 	dbg_msg("***crtc addr:%p\n",crtc);
 	dbg_msg("x:%d,y:%d\n",x,y);
 	
-	dbg_msg("encode 0->crtc:[%p], 1->crtc:[%p] \n",smi_enc_tab[0]->crtc, smi_enc_tab[1]->crtc);
+	dbg_msg("encode 0->crtc:[%p], 1->crtc:[%p] \n",sdev->smi_enc_tab[0]->crtc, sdev->smi_enc_tab[1]->crtc);
 	dbg_msg("Printf g_m_connector = %d,  DVI [%d], VGA[%d], HDMI[%d] \n",g_m_connector, g_m_connector&0x1, g_m_connector&0x2, g_m_connector&0x4);
 	
 	dbg_msg("wxh:%dx%d@%dHz\n",adjusted_mode->hdisplay,adjusted_mode->vdisplay,refresh_rate);
@@ -295,7 +295,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 		
 	if(g_specId == SPC_SM750)
 	{
-		if(crtc == smi_enc_tab[0]->crtc)
+		if(crtc == sdev->smi_enc_tab[0]->crtc)
 		{
 			logicalMode.baseAddress = 0;
 			logicalMode.x = adjusted_mode->hdisplay;
@@ -311,7 +311,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 			setPath(SMI0_PATH, SMI0_CTRL, DISP_ON);     /* Turn on Panel Path and use Primary data */
 			smi_crtc_do_set_base(crtc, old_fb, x, y, 0, SMI0_CTRL);	
 		}
-		if(crtc == smi_enc_tab[1]->crtc)
+		if(crtc == sdev->smi_enc_tab[1]->crtc)
 		{
 			logicalMode.baseAddress = 0;
 			logicalMode.x = adjusted_mode->hdisplay;
@@ -345,7 +345,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 		
 		for(i = 0;i < MAX_ENCODER; i++)
 		{
-			if(crtc == smi_enc_tab[i]->crtc)
+			if(crtc == sdev->smi_enc_tab[i]->crtc)
 			{
 				ctrl_index = i;
 				break;
@@ -899,7 +899,7 @@ int smi_connector_get_modes(struct drm_connector *connector)
 #else
 		
 
-				sdev->dvi_edid = drm_get_edid(connector, &smi_connector->adapter);
+			sdev->dvi_edid = drm_get_edid(connector, &smi_connector->adapter);
 
 
 			if(sdev->dvi_edid)
@@ -1001,7 +1001,7 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		if(connector->connector_type == DRM_MODE_CONNECTOR_VGA)
 		{
 
-   			   sdev->vga_edid = drm_get_edid(connector, &smi_connector->adapter);
+   			sdev->vga_edid = drm_get_edid(connector, &smi_connector->adapter);
 			
 			if(sdev->vga_edid)
 			{
@@ -1465,7 +1465,7 @@ int smi_modeset_init(struct smi_device *cdev)
 #endif
 
 
-	cdev->dev->mode_config.fb_base = cdev->mc.vram_base;
+	cdev->dev->mode_config.fb_base = cdev->vram_base;
 	cdev->dev->mode_config.preferred_depth = smi_bpp;
 	cdev->dev->mode_config.prefer_shadow = 1;
 
@@ -1474,9 +1474,6 @@ int smi_modeset_init(struct smi_device *cdev)
 	{
 		smi_crtc = smi_crtc_init(cdev->dev, index);
 		smi_crtc->crtc_index = index;
-		smi_crtc_tab[index] = smi_crtc;
-		dbg_msg("******smi_crtc_tab[%d]:%p******\n",index, smi_crtc_tab[index]);
-
 	}
 	
 	if(g_specId == SPC_SM768)
@@ -1489,7 +1486,8 @@ int smi_modeset_init(struct smi_device *cdev)
 			DRM_ERROR("smi_encoder_tmds_init failed\n");
 			return -1;
 		}
-		smi_enc_tab[index] = encoder;
+		
+		cdev->smi_enc_tab[index] = encoder;
 
 		connector = smi_connector_init(cdev->dev, index);
 		if (!connector) {

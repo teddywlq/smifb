@@ -222,10 +222,10 @@ static int smifb_create(struct smi_fbdev *gfbdev,
 	}
 #endif
 	info->apertures->ranges[0].base = cdev->dev->mode_config.fb_base;
-	info->apertures->ranges[0].size = cdev->mc.vram_size;
+	info->apertures->ranges[0].size = cdev->vram_size;
 
 	info->fix.smem_start = cdev->dev->mode_config.fb_base;
-	info->fix.smem_len = cdev->mc.vram_size;
+	info->fix.smem_len = cdev->vram_size;
 
 	info->screen_base = bo->kmap.virtual; 
 	info->screen_size = size;

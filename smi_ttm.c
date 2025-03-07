@@ -329,10 +329,10 @@ int smi_mm_init(struct smi_device *smi)
 			     0x4000000 >> PAGE_SHIFT);
 	else
 		ret = ttm_bo_init_mm(bdev, TTM_PL_VRAM,
-			     smi->mc.vram_size >> PAGE_SHIFT);
+			     smi->vram_size >> PAGE_SHIFT);
 #else
 	ret = ttm_bo_init_mm(bdev, TTM_PL_VRAM,
-			     smi->mc.vram_size >> PAGE_SHIFT);
+			     smi->vram_size >> PAGE_SHIFT);
 #endif
 
 	if (ret) {

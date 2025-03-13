@@ -41,6 +41,7 @@ int clk_phase = -1;
 
 extern void hw750_suspend(struct smi_750_register * pSave);
 extern void hw750_resume(struct smi_750_register * pSave);
+extern int g_m_connector;
 
 module_param(smi_pat,int, S_IWUSR | S_IRUSR);
 
@@ -232,6 +233,16 @@ static int smi_drm_thaw(struct drm_device *dev)
 			hw768_resume(sdev->regsave_768);
 			if(audio_en)
 				smi_audio_resume();
+		if(g_m_connector & USE_DVI){
+			if (lvds_channel == 1){
+				hw768_enable_lvds(1);
+				DisableDoublePixel(0);
+			}
+			else if (lvds_channel == 2) {
+				hw768_enable_lvds(2);
+				EnableDoublePixel(0);
+			}
+		}
 	}
 	LEAVE(0);
 }

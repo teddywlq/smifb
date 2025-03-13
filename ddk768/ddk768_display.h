@@ -242,6 +242,7 @@ void setupLVDS(unsigned short lvds);
 
 
 long set48bitLVDS(disp_control_t dataPath);
+long setSingleLVDS(disp_control_t dataPath);
 
 
 #endif /* _DISPLAY_H_ */

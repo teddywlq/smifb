@@ -60,7 +60,6 @@
 #define NO_WC
 #endif
 
-extern int g_specId;
 
 extern int smi_pat;
 extern int smi_debug;
@@ -223,6 +222,10 @@ struct smi_device {
 	resource_size_t			vram_base;
 	void __iomem			*rmmio;
 	void __iomem 			*vram;
+	
+	int specId;
+	
+	int m_connector;  //bit 0: DVI, bit 1: VGA, bit 2: HDMI.
 
 	struct drm_encoder *smi_enc_tab[MAX_ENCODER];
 
@@ -454,8 +457,6 @@ void smi_ehci_shutdown(struct drm_device *dev);
 #define PCI_VENDOR_ID_SMI 	0x126f
 #define PCI_DEVID_LYNX_EXP	0x0750
 #define PCI_DEVID_SM768		0x0768
-
-extern int g_specId;
 
 #define BPP32_RED    0x00ff0000
 #define BPP32_GREEN  0x0000ff00

@@ -274,7 +274,7 @@ static int smi_vram_init(struct smi_device *cdev)
 	cdev->vram_base = pci_resource_start(cdev->dev->pdev, 0);
 
 	/* VRAM Size */
-	if(g_specId == SPC_SM750)
+	if(cdev->specId == SPC_SM750)
 		cdev->vram_size = ddk750_getFrameBufSize();
 	else
 		cdev->vram_size = ddk768_getFrameBufSize();
@@ -349,9 +349,10 @@ int smi_device_init(struct smi_device *cdev,
 
 	if (cdev->rmmio == NULL)
 		return -ENOMEM;
-
-	if(g_specId == SPC_SM750)
+	
+	if(cdev->specId == SPC_SM750)
 		ddk750_set_mmio(cdev->rmmio,pdev->device,pdev->revision);
+
 	else
 		ddk768_set_mmio(cdev->rmmio,pdev->device,pdev->revision);
 
@@ -379,22 +380,39 @@ void drm_kms_helper_poll_init(struct drm_device *dev);
 int smi_driver_load(struct drm_device *dev, unsigned long flags)
 {
 	struct smi_device *cdev;
+	struct pci_dev *pdev; 
 	int r;
-
+	
+	pdev = to_pci_dev(dev->dev);
 	cdev = kzalloc(sizeof(struct smi_device), GFP_KERNEL);
 	if (cdev == NULL)
 		return -ENOMEM;
 	dev->dev_private = (void *)cdev;
 
-	r = pci_enable_device(dev->pdev);
+	switch (pdev->device) {
+	case PCI_DEVID_LYNX_EXP:
+		cdev->specId = SPC_SM750;
+		break;
+	case PCI_DEVID_SM768:
+		cdev->specId = SPC_SM768;
+		break;
+	default:
+		return -ENODEV;
+	}
 
-	r = smi_device_init(cdev, dev, dev->pdev, flags);
+	dbg_msg("pdev->device:0x%x\n", pdev->device);
+	dbg_msg("specId:0x%x\n", cdev->specId);
+
+
+	r = pci_enable_device(pdev);
+
+	r = smi_device_init(cdev, dev, pdev, flags);
 	if (r) {
-		dev_err(&dev->pdev->dev, "Fatal error during GPU init: %d\n", r);
+		dev_err(&pdev->dev, "Fatal error during GPU init: %d\n", r);
 		goto out;
 	}
 
-	if(g_specId == SPC_SM750)
+	if(cdev->specId == SPC_SM750)
 	{
 		ddk750_initChip();
 		ddk750_deInit();
@@ -434,7 +452,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 
 	r = smi_mm_init(cdev);
 	if (r){
-		dev_err(&dev->pdev->dev, "fatal err on mm init\n");
+		dev_err(&pdev->dev, "fatal err on mm init\n");
 		goto out;
 	}
 
@@ -443,7 +461,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
-	r = drm_irq_install(dev, dev->pdev->irq);
+	r = drm_irq_install(dev, pdev->irq);
 #else
 	r = drm_irq_install(dev);
 #endif
@@ -454,7 +472,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	dev->mode_config.funcs = (void *)&smi_mode_funcs;
 	r = smi_modeset_init(cdev);
 	if (r){
-		dev_err(&dev->pdev->dev, "Fatal error during modeset init: %d\n", r);
+		dev_err(&pdev->dev, "Fatal error during modeset init: %d\n", r);
 		goto out;
 	}
 
@@ -504,7 +522,7 @@ int smi_driver_unload(struct drm_device *dev)
 	smi_device_fini(cdev);
 
 
-	if(g_specId == SPC_SM768)
+	if(cdev->specId == SPC_SM768)
 	{
 		if(audio_en)
 			smi_audio_remove(dev);

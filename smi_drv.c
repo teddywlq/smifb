@@ -22,7 +22,6 @@ int smi_modeset = -1;
 int smi_indent = 0;
 int smi_bpp = 24;
 int force_connect = 0;
-int g_specId = 0;
 int smi_pat = 0xff;
 int lvds_channel = 0;
 int usb_host = 0;
@@ -41,7 +40,6 @@ int clk_phase = -1;
 
 extern void hw750_suspend(struct smi_750_register * pSave);
 extern void hw750_resume(struct smi_750_register * pSave);
-extern int g_m_connector;
 
 module_param(smi_pat,int, S_IWUSR | S_IRUSR);
 
@@ -144,22 +142,7 @@ static int smi_pci_probe(struct pci_dev *pdev,
 	ret = smi_kick_out_firmware_fb(pdev);
 	if (ret)
 		return ret;
-
 	claim();
-
-	switch (ent->device){
-		case PCI_DEVID_LYNX_EXP:
-			g_specId = SPC_SM750;
-			break;
-		case PCI_DEVID_SM768:
-			g_specId = SPC_SM768;
-			break;
-		default:
-			break;
-	}
-	dbg_msg("ent->device:0x%x\n", ent->device);
-	dbg_msg("g_specId:0x%x\n", g_specId);
-	
 	return drm_get_pci_dev(pdev, ent, &driver);
 }
 
@@ -194,9 +177,9 @@ static int smi_drm_freeze(struct drm_device *dev)
 		console_unlock();
 	}
 
-	if(g_specId == SPC_SM750)
+	if(sdev->specId == SPC_SM750)
          hw750_suspend(sdev->regsave);
-    else if(g_specId == SPC_SM768){
+    else if(sdev->specId == SPC_SM768){
 		 if(audio_en)
 			 smi_audio_suspend();
          hw768_suspend(sdev->regsave_768);
@@ -227,13 +210,13 @@ static int smi_drm_thaw(struct drm_device *dev)
 	}
 
 	
-	if(g_specId == SPC_SM750)
+	if(sdev->specId == SPC_SM750)
 			hw750_resume(sdev->regsave);
-	else if(g_specId == SPC_SM768){
+	else if(sdev->specId == SPC_SM768){
 			hw768_resume(sdev->regsave_768);
 			if(audio_en)
 				smi_audio_resume();
-		if(g_m_connector & USE_DVI){
+		if(sdev->m_connector & USE_DVI){
 			if (lvds_channel == 1){
 				hw768_enable_lvds(1);
 				DisableDoublePixel(0);
@@ -328,10 +311,12 @@ static int smi_pm_poweroff(struct device *dev)
 
 static int smi_enable_vblank(struct drm_device *dev, unsigned int pipe)
 {
-	if(g_specId == SPC_SM750)
+	struct smi_device *sdev = dev->dev_private;
+	
+	if(sdev->specId == SPC_SM750)
 	{
 		hw750_en_dis_interrupt(1, pipe);
-	}else if(g_specId == SPC_SM768)
+	}else if(sdev->specId == SPC_SM768)
 	{
 		hw768_en_dis_interrupt(1, pipe);
 	}
@@ -341,10 +326,12 @@ static int smi_enable_vblank(struct drm_device *dev, unsigned int pipe)
 
 static void smi_disable_vblank(struct drm_device *dev, unsigned int pipe)
 {
-	if(g_specId == SPC_SM750)
+	struct smi_device *sdev = dev->dev_private;
+	
+	if(sdev->specId == SPC_SM750)
 	{
 		hw750_en_dis_interrupt(0, pipe);
-	}else if(g_specId == SPC_SM768)
+	}else if(sdev->specId == SPC_SM768)
 	{
 		hw768_en_dis_interrupt(0, pipe);
 	}
@@ -367,12 +354,13 @@ static int smi_irq_postinstall(struct drm_device *dev)
 
 static void smi_irq_uninstall(struct drm_device *dev)
 {
+	struct smi_device *sdev = dev->dev_private;
 
 	/* Disable *all* interrupts */
-	if(g_specId == SPC_SM750)
+	if(sdev->specId == SPC_SM750)
 	{
 		ddk750_disable_IntMask();
-	}else if(g_specId == SPC_SM768)
+	}else if(sdev->specId == SPC_SM768)
 	{
 		ddk768_disable_IntMask();
 	}
@@ -386,7 +374,9 @@ irqreturn_t smi_drm_interrupt(int irq, void *arg)
 	
 	int handled = 0;
 	
-	if(g_specId == SPC_SM750)
+	struct smi_device *sdev = dev->dev_private;
+	
+	if(sdev->specId == SPC_SM750)
 	{
 	    if (hw750_check_vsync_interrupt(0))
 	    {
@@ -400,7 +390,7 @@ irqreturn_t smi_drm_interrupt(int irq, void *arg)
 			handled = 1;
 			hw750_clear_vsync_interrupt(1);
 		}
-	}else if(g_specId == SPC_SM768)
+	}else if(sdev->specId == SPC_SM768)
 	{
 		if (hw768_check_vsync_interrupt(0))
 		{

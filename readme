@@ -1,8 +1,8 @@
 1. Introduction
-SiliconMotion SM750/SM768 Graphics PCI-E DRM Driver
+SiliconMotion SM750/SM768/SM770 Graphics PCI-E DRM Driver
 
 2. Usage
-This driver can be compiled under the kernel 5.x. 
+This driver can be compiled on kernel v4.x. 
 1)  Please make sure that you are in console and run as root user.
 2)  Open this driver directory, and use the "make" command, it will to generate the "smifb.ko".
 3)	Install the module.

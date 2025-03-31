@@ -27,9 +27,101 @@
 #include "hw768.h"
 #include "ddk768/ddk768_video.h"
 #include "ddk768/ddk768_chip.h"
+#include "hw770.h"
+#include "ddk768/ddk768_hdmi.h"
+#include "ddk770/ddk770_hdmi.h"
+
+#define MAX_COLOR_LUT_ENTRIES 256
+
+#if 0
+
+/*
+------------------------------------------------------
+		DP0		DP1		HDMI0		HDMI1		HDMI2
+1.		CRTC0	CRTC1	CRTC2
+2.		CRTC0	CRTC1				CRTC2
+3.		CRTC0	CRTC1							CRTC2
+4. 		CRTC0			CRTC1		CRTC2
+5.  	CRTC0			CRTC1					CRTC2
+6.		CRTC0						CRTC1		CRTC2
+7.				CRTC0	CRTC1		CRTC2
+8.				CRTC0	CRTC1					CRTC2	
+9.				CRTC0				CRTC1		CRTC2
+10.						CRTC0		CRTC1		CRTC2
+------------------------------------------------------
+CRTC.	0		0/1		0/1/2		1/2			2
+------------------------------------------------------
+SO:
+DP0 	-> CRTC0 (default)
+DP1 	-> CRTC0 (default)   ->CRTC1 (USE_DP0)
+HDMI0   -> CRTC0 (default)   ->CRTC1 (USE_DP0)  	->CRTC2 (USE_DP0 && USE_DP1)
+HDMI1  	-> CRTC2 (default)   ->CRTC1 (USE_HDMI2)  
+HDMI2 	-> CRTC2 (default)   
+*/
+int smi_encoder_crtc_index_changed(int encoder_index, int m_connector){  //For SM770
+	int crtc_index = 0;
+	switch (encoder_index) {
+		case 0:
+			crtc_index = CHANNEL0_CTRL;
+			break;
+		case 1:
+			crtc_index = (m_connector & USE_DP0) ? CHANNEL1_CTRL : CHANNEL0_CTRL;
+			break;
+		case 2:
+			crtc_index = ((m_connector & USE_DP0) && (m_connector & USE_DP1)) ? CHANNEL2_CTRL : 
+					(m_connector & USE_DP0) ? CHANNEL1_CTRL : CHANNEL0_CTRL;
+			break;
+		case 3:
+			crtc_index = (m_connector & USE_HDMI2) ? CHANNEL1_CTRL : CHANNEL2_CTRL;
+			break;
+		case 4:
+			crtc_index = CHANNEL2_CTRL;
+			break;
+	}
+	return crtc_index;
+}
+#else
+/*
+DP0->Encode0-> CRTC0 
+DP1->Encode1-> CRTC1 (default) 
+HDMI0->Encode2  -> CRTC0 (default) 
+HDMI1->Encode3  -> CRTC1 (default) 
+HDMI2->Encode4 	-> CRTC2 (default) 
+
+So only support 
+Single HDMI0/1/2, DP0/DP1
+DP0+DP1
+HDMI0+HDMI1/HDMI2
+DP0+HDMI1/HDMI2
+DP0+HDMI1+HDMI2
+DP0+DP1+HDMI2
+HDMI0+HDMI1+HDMI2
+
+Priority:
+HDMI0>DP0
+HDMI1>DP1
+
+*/
 
 
-unsigned char HDMI_connector_detect(void);
+int smi_encoder_crtc_index_changed(int encoder_index){  //For SM770
+	int crtc_index = 0;
+	switch (encoder_index) {
+		case 0: case 2:
+			crtc_index = CHANNEL0_CTRL;
+			break;
+		case 1: case 3:
+			crtc_index = CHANNEL1_CTRL;
+			break;
+		case 4:
+			crtc_index = CHANNEL2_CTRL;
+			break;
+	}
+	return crtc_index;
+}
+
+
+#endif
 
 int smi_calc_hdmi_ctrl(int m_connector)
 {
@@ -43,6 +135,17 @@ int smi_calc_hdmi_ctrl(int m_connector)
 		return smi_ctrl;
 
 }
+
+
+static int count_set_bits(unsigned int value) {
+    int count = 0;
+    while (value) {
+        count += value & 1;
+        value >>= 1;
+    }
+    return count;
+}
+
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0) )
 /*
@@ -62,17 +165,17 @@ static int smi_crtc_gamma_set(struct drm_crtc *crtc, u16 *r, u16 *g,
 {
 	
 	struct smi_crtc *smi_crtc = to_smi_crtc(crtc); 
-	int i , max_index = 2, ctrl_index, dst_ctrl;
+	int i , ctrl_index, dst_ctrl;
 	struct smi_device *sdev = crtc->dev->dev_private;
+	int max_enc, max_ctrl;
 	
 	ctrl_index = 0;
 	dst_ctrl = 0;
 
-	if(sdev->specId == SPC_SM768)
-		max_index = MAX_ENCODER;
+	max_enc = MAX_ENCODER(sdev->specId);
+	max_ctrl = MAX_CRTC(sdev->specId);	
 
-		
-	for(i = 0;i < max_index; i++)
+	for(i = 0;i < max_enc; i++)
 	{
 		if(crtc == sdev->smi_enc_tab[i]->crtc)
 		{
@@ -81,11 +184,16 @@ static int smi_crtc_gamma_set(struct drm_crtc *crtc, u16 *r, u16 *g,
 		}
 	}
 	
-	dst_ctrl = (ctrl_index == SMI1_CTRL)?SMI1_CTRL:SMI0_CTRL;
+	dst_ctrl = (ctrl_index == CHANNEL1_CTRL)?CHANNEL1_CTRL:CHANNEL0_CTRL;
 
-	if(ctrl_index > SMI1_CTRL)
+
+	if(sdev->specId == SPC_SM768){
+		if(ctrl_index >= MAX_CRTC_768)  //calc which path should we use for HDMI.
 	{
-		dst_ctrl= smi_calc_hdmi_ctrl(sdev->m_connector);
+			dst_ctrl = smi_calc_hdmi_ctrl(sdev->m_connector);
+	}
+	}else if(sdev->specId == SPC_SM770){
+		dst_ctrl = (disp_control_t)smi_encoder_crtc_index_changed(ctrl_index);
 	}
 
 
@@ -96,16 +204,19 @@ static int smi_crtc_gamma_set(struct drm_crtc *crtc, u16 *r, u16 *g,
 		smi_crtc->lut_b[i] = b[i] >> 8;
 	}
 
-	if (sdev->specId == SPC_SM768) {
+
+	if(sdev->specId == SPC_SM750) {
+		hw750_setgamma(dst_ctrl, true);
+		hw750_load_lut(dst_ctrl, crtc->gamma_size, smi_crtc->lut_r, smi_crtc->lut_g, smi_crtc->lut_b);
+	}else if (sdev->specId == SPC_SM768) {
 		if(sdev->m_connector & USE_DVI)
 			hw768_setgamma(dst_ctrl, true , lvds_channel);
 		else
 			hw768_setgamma(dst_ctrl, true , 0);
 		hw768_load_lut(dst_ctrl, crtc->gamma_size, smi_crtc->lut_r, smi_crtc->lut_g, smi_crtc->lut_b);
-	
-	}else if(sdev->specId == SPC_SM750) {
-		hw750_setgamma(dst_ctrl, true);
-		hw750_load_lut(dst_ctrl, crtc->gamma_size, smi_crtc->lut_r, smi_crtc->lut_g, smi_crtc->lut_b);
+	}else if (sdev->specId == SPC_SM770) {
+		hw770_setgamma(dst_ctrl, true);
+		hw770_load_lut(dst_ctrl, crtc->gamma_size, smi_crtc->lut_r, smi_crtc->lut_g, smi_crtc->lut_b);
 	}
 	
 	return 0;
@@ -118,13 +229,13 @@ static int smi_crtc_gamma_set(struct drm_crtc *crtc, u16 *r, u16 *g,
  * case and so are just stubs
  */
 
-static void smi_crtc_dpms(struct drm_crtc *crtc, int mode)
-{
-	ENTER();
-	LEAVE();
-}
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
+ static void smi_crtc_dpms(struct drm_crtc *crtc, int mode)
+ {
+	 ENTER();
+	 LEAVE();
+ }
+ 
+ #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
 
 /*
  * The core passes the desired mode to the CRTC code to see whether any
@@ -200,26 +311,27 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 		int align_width = (win_width + 15) & ~15;
 		int align_offset = align_width - win_width;
 		unsigned long base_addr = gpu_addr + y * pitch + align_width;
-
+		dbg_msg("crtc set  base: DC:%d x:%d y:%d pitch:%d base_addr:0x%lx \n",dst_ctrl, x,y,pitch,base_addr);
 		if (sdev->specId == SPC_SM750)
 		{
 
 			if (crtc == sdev->smi_enc_tab[0]->crtc)
 			{
-				hw750_set_base(SMI0_CTRL, pitch, base_addr);
+				hw750_set_base(CHANNEL0_CTRL, pitch, base_addr);
 			}
 			if (crtc == sdev->smi_enc_tab[1]->crtc)
 			{
-				hw750_set_base(SMI1_CTRL, pitch, base_addr);
+				hw750_set_base(CHANNEL1_CTRL, pitch, base_addr);
 			}
 		}
-		else
+		else if (sdev->specId == SPC_SM768)
 		{
-		    
 			hw768_set_base(dst_ctrl, pitch, base_addr);
-			
 		}
-
+		else if (sdev->specId == SPC_SM770)
+		{
+			hw770_set_base(dst_ctrl, pitch, base_addr);
+		}
 		smi_crtc->CursorOffset = align_offset / (smi_bpp / 8);
 	}
 
@@ -230,31 +342,35 @@ static int smi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 {
 
 	struct smi_device *sdev = crtc->dev->dev_private;
-	int i, ctrl_index, dst_ctrl, ret, max_index = 2;
+	int i, ctrl_index, dst_ctrl, ret;
 	ENTER();
 	ret = 0;
 	ctrl_index = 0;
 	dst_ctrl = 0;
-	
-	if(sdev->specId == SPC_SM768)
-		max_index = MAX_ENCODER;
-	
-	for(i = 0;i < max_index; i++)
+
+	for (i = 0; i < MAX_ENCODER(sdev->specId); i++)
 	{
-		if(crtc == sdev->smi_enc_tab[i]->crtc)
+		if (crtc == sdev->smi_enc_tab[i]->crtc)
 		{
 			ctrl_index = i;
 			break;
 		}
 	}
-	
-	dst_ctrl = (ctrl_index == SMI1_CTRL)?SMI1_CTRL:SMI0_CTRL;
 
-	if(ctrl_index > SMI1_CTRL)
+	dst_ctrl = (ctrl_index == CHANNEL1_CTRL) ? CHANNEL1_CTRL : CHANNEL0_CTRL;
+
+	if (sdev->specId == SPC_SM768)
 	{
-		printk("Reset HDMI base");
-		dst_ctrl= smi_calc_hdmi_ctrl(sdev->m_connector);
+		if (ctrl_index >= MAX_CRTC_768) // calc which path should we use for HDMI.
+		{
+			dst_ctrl = smi_calc_hdmi_ctrl(sdev->m_connector);
+		}
 	}
+	else if (sdev->specId == SPC_SM770)
+	{
+		dst_ctrl = (disp_control_t)smi_encoder_crtc_index_changed(ctrl_index);
+	}
+
 	dbg_msg("set base: dst[%d], con[%d]\n", dst_ctrl, ctrl_index);
 
 	ret = smi_crtc_do_set_base(crtc, old_fb, x, y, 0, dst_ctrl);
@@ -274,19 +390,21 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 				struct drm_display_mode *adjusted_mode,
 				int x, int y, struct drm_framebuffer *old_fb)
 {
-	u32 refresh_rate = drm_mode_vrefresh(mode);
+
+
 	struct smi_device *sdev = crtc->dev->dev_private;
 	logicalMode_t logicalMode;
-	int need_to_scale = 0;
+	unsigned long refresh_rate;
+	unsigned int need_to_scale = 0;
 	YUV_BUF_ADDR SrcAddr;
 	BLIT_BLK src;
 	BLIT_BLK dest;
 	
-	ENTER();
+	int ret = 0;	
 	
-	logicalMode.valid_edid = false;
-	dbg_msg("***crtc addr:%p\n",crtc);
-	dbg_msg("x:%d,y:%d\n",x,y);
+	logicalMode.valid_edid = false;	
+	refresh_rate = drm_mode_vrefresh(mode);
+
 	
 	dbg_msg("encode 0->crtc:[%p], 1->crtc:[%p] \n",sdev->smi_enc_tab[0]->crtc, sdev->smi_enc_tab[1]->crtc);
 	dbg_msg("Printf m_connector = %d,  DVI [%d], VGA[%d], HDMI[%d] \n",sdev->m_connector, sdev->m_connector&0x1, sdev->m_connector&0x2, sdev->m_connector&0x4);
@@ -294,23 +412,23 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 	dbg_msg("wxh:%dx%d@%dHz\n",adjusted_mode->hdisplay,adjusted_mode->vdisplay,refresh_rate);
 
 		
-	if(sdev->specId == SPC_SM750)
-	{
+	if (sdev->specId == SPC_SM750) {
+	
 		if(crtc == sdev->smi_enc_tab[0]->crtc)
 		{
 			logicalMode.baseAddress = 0;
 			logicalMode.x = adjusted_mode->hdisplay;
 			logicalMode.y = adjusted_mode->vdisplay;
 			logicalMode.bpp = smi_bpp;
-			logicalMode.dispCtrl = SMI0_CTRL;
+			logicalMode.dispCtrl = CHANNEL0_CTRL;
 			logicalMode.hz = refresh_rate;
 			logicalMode.pitch = 0;
 
 			setMode(&logicalMode);
 
-			setDisplayControl(SMI0_CTRL, DISP_ON);           /* Turn on Primary Control */
-			setPath(SMI0_PATH, SMI0_CTRL, DISP_ON);     /* Turn on Panel Path and use Primary data */
-			smi_crtc_do_set_base(crtc, old_fb, x, y, 0, SMI0_CTRL);	
+			setDisplayControl(CHANNEL0_CTRL, DISP_ON);           /* Turn on Primary Control */
+			setPath(SMI0_PATH, CHANNEL0_CTRL, DISP_ON);     /* Turn on Panel Path and use Primary data */
+			smi_crtc_do_set_base(crtc, old_fb, x, y, 0, CHANNEL0_CTRL);	
 		}
 		if(crtc == sdev->smi_enc_tab[1]->crtc)
 		{
@@ -318,14 +436,14 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 			logicalMode.x = adjusted_mode->hdisplay;
 			logicalMode.y = adjusted_mode->vdisplay;
 			logicalMode.bpp = smi_bpp;
-			logicalMode.dispCtrl = SMI1_CTRL;
+			logicalMode.dispCtrl = CHANNEL1_CTRL;
 			logicalMode.hz = refresh_rate;
 			logicalMode.pitch = 0;
 			setMode(&logicalMode);
 
-			setDisplayControl(SMI1_CTRL, DISP_ON);         /* Turn on Secondary control */
-			setPath(SMI1_PATH, SMI1_CTRL, DISP_ON);     /* Turn on CRT Path and use Secondary data */
-			smi_crtc_do_set_base(crtc, old_fb, x, y, 0, SMI1_CTRL);
+			setDisplayControl(CHANNEL1_CTRL, DISP_ON);         /* Turn on Secondary control */
+			setPath(SMI1_PATH, CHANNEL1_CTRL, DISP_ON);     /* Turn on CRT Path and use Secondary data */
+			smi_crtc_do_set_base(crtc, old_fb, x, y, 0, CHANNEL1_CTRL);
 		}
 		
 		swPanelPowerSequence(DISP_ON, 4);                   /* Turn on Panel */
@@ -337,14 +455,13 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 #endif
 
 	 }
-	else
-	{
+	else if(sdev->specId == SPC_SM768) {  //SPC_SM768
 		int i, ctrl_index, dst_ctrl;
 		
 		ctrl_index = 0;
 		dst_ctrl = 0;
 		
-		for(i = 0;i < MAX_ENCODER; i++)
+		for(i = 0;i < MAX_ENCODER(sdev->specId); i++)
 		{
 			if(crtc == sdev->smi_enc_tab[i]->crtc)
 			{
@@ -353,9 +470,9 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 			}
 		}
 
-		dst_ctrl = (ctrl_index == SMI1_CTRL)?SMI1_CTRL:SMI0_CTRL;
+		dst_ctrl = (ctrl_index == CHANNEL1_CTRL)?CHANNEL1_CTRL:CHANNEL0_CTRL;
 		
-		if(ctrl_index > SMI1_CTRL)
+		if(ctrl_index >= MAX_CRTC_768)
 		{
 			dst_ctrl=smi_calc_hdmi_ctrl(sdev->m_connector);
 			dbg_msg("hdmi use channel %d\n",dst_ctrl);
@@ -370,7 +487,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 		logicalMode.pitch = 0;
 		logicalMode.dispCtrl = dst_ctrl;
 
-		switch (ctrl_index)
+		switch (ctrl_index) // 0:DVI, 1:VGA, 2:HDMI
 		{
 			case 0:
 				if (sdev->dvi_edid && drm_edid_header_is_valid((u8 *)sdev->dvi_edid) == 8)
@@ -434,6 +551,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 			stopVideo(dst_ctrl);
 		}
 
+
 		smi_crtc_do_set_base(crtc, old_fb, x, y, 0, dst_ctrl);
 		setSingleViewOn(dst_ctrl);
 		initDisplay();		
@@ -448,13 +566,13 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 		else
 			hw768_SetPixelClockFormat(dst_ctrl,0);
 #endif
-		if((sdev->m_connector & USE_HDMI)&&(ctrl_index > SMI1_CTRL))
+		if((sdev->m_connector & USE_HDMI)&&(ctrl_index > CHANNEL1_CTRL))
 		{
 			int ret = 0;
 			printk("Starting init SM768 HDMI! Use Channel [%d]\n", dst_ctrl);
 			if(dst_ctrl == 0)
 				hw768_SetPixelClockFormat(dst_ctrl,0);
-			ret=hw768_set_hdmi_mode(&logicalMode, *adjusted_mode, sdev->is_hdmi);
+			ret=hw768_set_hdmi_mode(&logicalMode, *adjusted_mode, sdev->is_768hdmi);
 			if (ret != 0)
 			{
 				printk("HDMI Mode not supported!\n");
@@ -474,10 +592,107 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 			}
 		}		
 
-	}
-	LEAVE(0);
- }
+		
+		
+		
+			
+	}else if(sdev->specId ==SPC_SM770){
+		int encoder_index = 0, dst_ctrl = 0, i;
+	
+		for(i = 0;i < MAX_ENCODER(sdev->specId); i++)
+		{
+			if(crtc == sdev->smi_enc_tab[i]->crtc)
+			{
+				encoder_index = i;
+				break;
+			}
+		}
 
+		dst_ctrl = smi_encoder_crtc_index_changed(encoder_index);
+		
+		logicalMode.baseAddress = 0;
+		logicalMode.x = adjusted_mode->hdisplay;
+		logicalMode.y = adjusted_mode->vdisplay;
+		logicalMode.bpp = smi_bpp;
+		logicalMode.hz = refresh_rate;
+		logicalMode.pitch = 0;
+		logicalMode.dispCtrl = dst_ctrl;
+
+		switch (encoder_index)
+		{
+			case 0:
+				if (sdev->dp0_edid && drm_edid_header_is_valid((u8 *)sdev->dp0_edid) == 8)
+					logicalMode.valid_edid = true;
+				break;
+			case 1:
+				if (sdev->dp1_edid && drm_edid_header_is_valid((u8 *)sdev->dp1_edid) == 8)
+					logicalMode.valid_edid = true;
+				break;
+			case 2:
+				if (sdev->hdmi0_edid && drm_edid_header_is_valid((u8 *)sdev->hdmi0_edid) == 8)
+					logicalMode.valid_edid = true;
+				break;
+			case 3:
+				if (sdev->hdmi1_edid && drm_edid_header_is_valid((u8 *)sdev->hdmi1_edid) == 8)
+					logicalMode.valid_edid = true;
+				break;
+			case 4:
+				if (sdev->hdmi2_edid && drm_edid_header_is_valid((u8 *)sdev->hdmi2_edid) == 8)
+					logicalMode.valid_edid = true;
+				break;
+			default:
+				break;
+		}
+
+		if(edid_mode == 0){
+			printk("Use Driver build-in mode timing\n");
+			logicalMode.valid_edid = false;
+		}
+
+		
+		hw770_setMode(&logicalMode, *adjusted_mode);
+		smi_crtc_do_set_base(crtc, old_fb, x, y, 0, dst_ctrl);
+		if((sdev->m_connector & USE_HDMI0 || sdev->m_connector & USE_HDMI1 || sdev->m_connector & USE_HDMI2) && (encoder_index > 1)) //hdmi start from encoder 2
+		{
+		
+			int hdmi_index;
+
+			hdmi_index = encoder_index - 2; 
+			
+			printk("Starting init SM770 HDMI %d! Use Channel [%d]\n", hdmi_index,dst_ctrl);
+
+		
+            ret = hw770_set_hdmi_mode(&logicalMode, *adjusted_mode, sdev->is_hdmi[hdmi_index],hdmi_index);
+			
+			hw770_hdmi_interrupt_enable(hdmi_index,1);
+			
+			if (ret != 0)
+			{
+				printk("HDMI Mode not supported!\n");
+			}
+ 		}
+		if((sdev->m_connector & USE_DP0 || sdev->m_connector & USE_DP1) && (encoder_index < 2)) //dp start from encoder 0 to encoder 1
+		{
+			int dp_index;
+
+			dp_index = encoder_index;
+
+			printk("Starting init SM770 DP %d! Use Channel [%d]\n", dp_index,dst_ctrl);
+
+			ret = hw770_set_dp_mode(&logicalMode, *adjusted_mode, dp_index);
+
+			if (ret != 0)
+			{
+				printk("DP Mode not supported!\n");
+			}
+	
+
+		}
+			
+	
+	}
+	return ret;
+}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
 	
 #if	(LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
@@ -679,17 +894,31 @@ static void smi_encoder_mode_set(struct drm_encoder *encoder,
 
 static void smi_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
-	int index =0;
-	
+
+	int index =0, i;
 	struct smi_device *sdev = encoder->dev->dev_private;
-	
+	int disp_crtl;
 	ENTER();
+	if (sdev->specId == SPC_SM750 || sdev->specId == SPC_SM768)
+	{
 	if (encoder->encoder_type  == DRM_MODE_ENCODER_LVDS)
 		index =  0;
 	else if (encoder->encoder_type  == DRM_MODE_ENCODER_DAC)
 		index =  1;
 	else if (encoder->encoder_type  == DRM_MODE_ENCODER_TMDS)
 		index = 2;
+	}
+	else if (sdev->specId == SPC_SM770)
+	{
+		for (i = 0; i < MAX_ENCODER(sdev->specId); i++)
+		{
+			if (encoder == sdev->smi_enc_tab[i])
+			{
+				index = i;
+				break;
+			}
+		}
+	}
 	
 	dbg_msg("The current connect group = [%d], we deal with con=[%d], mode=[%s]\n", sdev->m_connector,index, (mode == DRM_MODE_DPMS_OFF)?"Off":"ON");
 	if(sdev->specId == SPC_SM750)
@@ -727,16 +956,19 @@ static void smi_encoder_dpms(struct drm_encoder *encoder, int mode)
 		}
 		else if(encoder->encoder_type  == DRM_MODE_ENCODER_TMDS)
 		{	
-			if (mode == DRM_MODE_DPMS_OFF)	
-				hw768_HDMI_Disable_Output();
+			if (mode == DRM_MODE_DPMS_OFF)
+			{	
+				
+			hw768_HDMI_Disable_Output();
+			}
 			else
-				hw768_HDMI_Enable_Output();
+			hw768_HDMI_Enable_Output();
 			if(sdev->m_connector == USE_DVI_HDMI){
-				index = SMI1_CTRL;
+				index = CHANNEL1_CTRL;
 			 	dbg_msg("HDMI connector: index=%d\n",index);
 			}
 			else if(sdev->m_connector == USE_VGA_HDMI || sdev->m_connector == USE_HDMI){
-				index = SMI0_CTRL;
+				index = CHANNEL0_CTRL;
 			 	dbg_msg("HDMI connector: index=%d\n",index);
 			}else{
 				dbg_msg("HDMI connector not set dpms\n");
@@ -757,8 +989,22 @@ static void smi_encoder_dpms(struct drm_encoder *encoder, int mode)
 		else
 			DisableDoublePixel(0);
 
+	}else if(sdev->specId == SPC_SM770)
+	{
+		
+		disp_crtl = smi_encoder_crtc_index_changed(index);
+
+		if (mode == DRM_MODE_DPMS_OFF){
+	
+			ddk770_setDisplayDPMS(disp_crtl, DISP_DPMS_OFF);
+			ddk770_swPanelPowerSequence(disp_crtl, 0, disp_crtl, 4);  
+		}else{
+
+			ddk770_setDisplayDPMS(disp_crtl, DISP_DPMS_ON);
+			ddk770_swPanelPowerSequence(disp_crtl, 1, disp_crtl, 4);
 	}
 	
+	}
 	LEAVE();
 }
 
@@ -805,6 +1051,7 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 {
 	struct drm_encoder *encoder;
 	struct smi_encoder *smi_encoder;
+	struct smi_device *sdev = dev->dev_private;
 
 	smi_encoder = kzalloc(sizeof(struct smi_encoder), GFP_KERNEL);
 	if (!smi_encoder)
@@ -813,6 +1060,7 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 	encoder = &smi_encoder->base;
 	encoder->possible_crtcs = (1 << index);
 
+	if (sdev->specId == SPC_SM750 || sdev->specId == SPC_SM768){
 	switch (index)
 	{
 		case 0:
@@ -841,7 +1089,36 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 #endif	
 			break;
 		default:
-			printk("error index of Connector\n");
+			printk(KERN_ERR "Wrong connector index\n");
+	}
+	} else if(sdev->specId == SPC_SM770){
+		 //three CRTC
+	//	drm_encoder_init(dev, encoder, &smi_encoder_encoder_funcs, DRM_MODE_ENCODER_TMDS, NULL);
+		switch (index)
+		{
+			case 0: case 1:
+				//DP
+				encoder->possible_crtcs = 1<<index;
+				drm_encoder_init(dev, encoder, &smi_encoder_encoder_funcs, 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0))
+				DRM_MODE_ENCODER_DPMST);
+#else
+			 DRM_MODE_ENCODER_DPMST, NULL);
+#endif	
+				break;
+			case 2: case 3: case 4:
+				//HDMI
+				encoder->possible_crtcs = 1<<(index-2);
+				drm_encoder_init(dev, encoder, &smi_encoder_encoder_funcs,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0))
+				DRM_MODE_ENCODER_TMDS);
+#else
+			 DRM_MODE_ENCODER_TMDS, NULL);
+#endif	
+				break;
+			default:
+				printk(KERN_ERR "Wrong connector index\n");
+		}
 	}
 
 	drm_encoder_helper_add(encoder, &smi_encoder_helper_funcs);
@@ -882,18 +1159,18 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		{
 #ifdef USE_HDMICHIP
 
-			edid_buf = sdev->dvi_edid;
+			edid_buf = sdev->si9022_edid;
 			if(ddk750_GetDDC_9022Access())
-				ret = ddk750_edidReadMonitorEx(SMI0_CTRL, edid_buf, 256, 0, 30, 31);
+				ret = ddk750_edidReadMonitorEx(CHANNEL0_CTRL, edid_buf, 256, 0, 30, 31);
 			ddk750_Release9022DDC();
 			if(ret){
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
-              	drm_connector_update_edid_property(connector, sdev->dvi_edid);
+              	drm_connector_update_edid_property(connector,sdev->si9022_edid);
 #else
-                drm_mode_connector_update_edid_property(connector, sdev->dvi_edid);
+                drm_mode_connector_update_edid_property(connector, sdev->si9022_edid);
 #endif
-                count = drm_add_edid_modes(connector, sdev->dvi_edid);
+                count = drm_add_edid_modes(connector, sdev->si9022_edid);
 	
             }
                 if (ret == 0 || count == 0)
@@ -968,7 +1245,7 @@ int smi_connector_get_modes(struct drm_connector *connector)
 				
 		}
 	}
-	else 
+	else if(sdev->specId == SPC_SM768)
 	{ //SM768 Part
 
 		if(connector->connector_type == DRM_MODE_CONNECTOR_DVII)
@@ -1053,8 +1330,8 @@ int smi_connector_get_modes(struct drm_connector *connector)
 				drm_mode_connector_update_edid_property(connector, sdev->hdmi_edid);
 #endif				
 				count = drm_add_edid_modes(connector, sdev->hdmi_edid);
-				sdev->is_hdmi = drm_detect_hdmi_monitor(sdev->hdmi_edid);
-                dbg_msg("HDMI connector is %s\n",(sdev->is_hdmi ? "HDMI monitor" : "DVI monitor"));
+				sdev->is_768hdmi = drm_detect_hdmi_monitor(sdev->hdmi_edid);
+                dbg_msg("HDMI connector is %s\n",(sdev->is_768hdmi ? "HDMI monitor" : "DVI monitor"));
 			}
 			if (sdev->hdmi_edid == NULL || count == 0)
 			{
@@ -1065,11 +1342,187 @@ int smi_connector_get_modes(struct drm_connector *connector)
 #endif
 				count = drm_add_modes_noedid(connector, 1920, 1080);
 				drm_set_preferred_mode(connector, fixed_width, fixed_height);
-				sdev->is_hdmi = true;
+				sdev->is_768hdmi = true;
 			}
 
 		}
 
+	}
+	else if(sdev->specId == SPC_SM770){ //SM770 Part
+		if(connector->connector_type == DRM_MODE_CONNECTOR_DisplayPort)
+		{
+#if USE_I2C_ADAPTER
+			sdev->dp0_edid = drm_get_edid(
+				connector, &smi_connector->dp_adapter);
+			if (sdev->dp0_edid)
+#else
+			ret = hw770_get_dp_edid(
+				0, (unsigned char *)sdev->dp0_edid);
+			if (ret)
+#endif
+			{
+				dbg_msg("DP0 get edid success.\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, sdev->dp0_edid);
+#else
+				drm_mode_connector_update_edid_property(connector, sdev->dp0_edid);
+#endif
+				count = drm_add_edid_modes(connector, sdev->dp0_edid);
+			}
+
+			if (sdev->dp0_edid == NULL || count == 0)
+			{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, NULL);
+#else
+				drm_mode_connector_update_edid_property(connector, NULL);
+#endif
+				count = drm_add_modes_noedid(connector, 3840, 2160);
+				drm_set_preferred_mode(connector, fixed_width, fixed_height);
+			}
+
+		}
+		if(connector->connector_type == DRM_MODE_CONNECTOR_eDP)
+		{
+#if USE_I2C_ADAPTER
+			sdev->dp1_edid = drm_get_edid(
+				connector, &smi_connector->dp_adapter);
+			if (sdev->dp1_edid)
+#else
+			ret = hw770_get_dp_edid(
+				1, (unsigned char *)sdev->dp1_edid);
+			if (ret)
+#endif
+			{
+				dbg_msg("DP1 get edid success.\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))				
+				drm_connector_update_edid_property(connector, sdev->dp1_edid);
+#else
+				drm_mode_connector_update_edid_property(connector, sdev->dp1_edid);
+#endif
+				count = drm_add_edid_modes(connector, sdev->dp1_edid);
+			}
+
+			if (sdev->dp1_edid == NULL || count == 0)
+			{
+				pr_err("[fail] DP1 get edid fail.\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, NULL);
+#else
+				drm_mode_connector_update_edid_property(connector, NULL);
+#endif
+				count = drm_add_modes_noedid(connector, 3840, 2160);
+				drm_set_preferred_mode(connector, fixed_width, fixed_height);
+			}
+
+		}
+		if(connector->connector_type == DRM_MODE_CONNECTOR_HDMIA)
+		{
+#if USE_I2C_ADAPTER
+			sdev->hdmi0_edid = drm_get_edid(
+				connector, &smi_connector->adapter);
+			if (sdev->hdmi0_edid)
+#else
+			ret = hw770_get_hdmi_edid(
+				0, (unsigned char *)sdev->hdmi0_edid);
+			if (ret)
+#endif
+			{
+				dbg_msg("HDMI0 get edid success.\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))	
+				drm_connector_update_edid_property(connector, sdev->hdmi0_edid);
+#else
+				drm_mode_connector_update_edid_property(connector, sdev->hdmi0_edid);
+#endif		
+				count = drm_add_edid_modes(connector, sdev->hdmi0_edid);
+				sdev->is_hdmi[0] = drm_detect_hdmi_monitor(sdev->hdmi0_edid);
+				ddk770_HDMI_set_SCDC(0, (u8 *)sdev->hdmi0_edid);
+                dbg_msg("SM770 HDMI0 connector is %s\n",(sdev->is_hdmi[0] ? "HDMI monitor" : "DVI monitor"));
+			}
+			if (sdev->hdmi0_edid == NULL || count == 0)
+			{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, NULL);
+#else
+				drm_mode_connector_update_edid_property(connector, NULL);
+#endif
+				count = drm_add_modes_noedid(connector, 3840, 2160);
+				drm_set_preferred_mode(connector, fixed_width, fixed_height);
+				sdev->is_hdmi[0] = true;
+			}
+
+		}
+		if(connector->connector_type == DRM_MODE_CONNECTOR_HDMIB)
+		{
+#if USE_I2C_ADAPTER
+			sdev->hdmi1_edid = drm_get_edid(
+				connector, &smi_connector->adapter);
+			if (sdev->hdmi1_edid)
+#else
+			ret = hw770_get_hdmi_edid(
+				1, (unsigned char *)sdev->hdmi1_edid);
+			if (ret)
+#endif
+			{
+				dbg_msg("HDMI1 get edid success.\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, sdev->hdmi1_edid);
+#else
+				drm_mode_connector_update_edid_property(connector, sdev->hdmi1_edid);
+#endif			
+				count = drm_add_edid_modes(connector, sdev->hdmi1_edid);
+				sdev->is_hdmi[1] = drm_detect_hdmi_monitor(sdev->hdmi1_edid);
+				ddk770_HDMI_set_SCDC(1, (u8 *)sdev->hdmi1_edid);
+                dbg_msg("SM770 HDMI1 connector is %s\n",(sdev->is_hdmi[1] ? "HDMI monitor" : "DVI monitor"));
+			}
+			if (sdev->hdmi1_edid == NULL || count == 0)
+			{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, NULL);
+#else
+				drm_mode_connector_update_edid_property(connector, NULL);
+#endif
+				count = drm_add_modes_noedid(connector, 3840, 2160);
+				drm_set_preferred_mode(connector, fixed_width, fixed_height);
+				sdev->is_hdmi[1] = true;
+			}
+
+		}
+		if(connector->connector_type == DRM_MODE_CONNECTOR_DVID)
+		{
+#if USE_I2C_ADAPTER
+			sdev->hdmi2_edid = drm_get_edid(
+				connector, &smi_connector->adapter);
+			if (sdev->hdmi2_edid)
+#else
+			ret = hw770_get_hdmi_edid(
+				2, (unsigned char *)sdev->hdmi2_edid);
+			if (ret)
+#endif
+			{
+				dbg_msg("HDMI2 get edid success.\n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, sdev->hdmi2_edid);
+#else
+				drm_mode_connector_update_edid_property(connector, sdev->hdmi2_edid);
+#endif			
+				count = drm_add_edid_modes(connector, sdev->hdmi2_edid);
+				sdev->is_hdmi[2] = drm_detect_hdmi_monitor(sdev->hdmi2_edid);
+				ddk770_HDMI_set_SCDC(2, (u8 *)sdev->hdmi2_edid);
+                dbg_msg("SM770 HDMI2 connector is %s\n",(sdev->is_hdmi[2] ? "HDMI monitor" : "DVI monitor"));
+			}
+			if (sdev->hdmi2_edid == NULL || count == 0)
+			{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
+				drm_connector_update_edid_property(connector, NULL);
+#else
+				drm_mode_connector_update_edid_property(connector, NULL);
+#endif
+				count = drm_add_modes_noedid(connector, 3840, 2160);
+				drm_set_preferred_mode(connector, fixed_width, fixed_height);
+				sdev->is_hdmi[2] = true;
+			}
+		}
 	}
 	
 	LEAVE(count);
@@ -1087,6 +1540,8 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 			return MODE_NOCLOCK;
 	}
 
+	if(sdev->specId != SPC_SM770){
+
 	if ((mode->hdisplay > 3840) || (mode->vdisplay > 2160) || (mode->clock > 297000))
 		 return MODE_NOMODE;
 	
@@ -1098,7 +1553,7 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 	
 	if(connector->connector_type == DRM_MODE_CONNECTOR_DVII){
 		if(mode->clock >= 200000)
-			return MODE_NOMODE;
+				return MODE_NOCLOCK;
 	}
 
 
@@ -1111,6 +1566,19 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 					return MODE_NOMODE;
 		}
 	}
+
+	}else{
+			if(mode->clock >= 300000)
+				return MODE_NOCLOCK;
+
+			if(mode->clock >=300000 && (count_set_bits(sdev->m_connector) > 2))  //SM770 can't support triple 4k@60hz
+				return MODE_NOCLOCK;
+
+			if((sdev->vram_size == MB(256)) &&  (mode->clock >= 200000))
+				return MODE_NOMODE;
+	}
+		
+
 	return MODE_OK;
 
 }
@@ -1173,7 +1641,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 #ifdef USE_HDMICHIP
 
 			if (ddk750_GetDDC_9022Access())
-				ret = ddk750_edidReadMonitorEx(SMI0_CTRL, edid_buf, 128, 0, 30, 31);
+				ret = ddk750_edidReadMonitorEx(CHANNEL0_CTRL, edid_buf, 128, 0, 30, 31);
 			ddk750_Release9022DDC();
 			if (ret)
 			{
@@ -1230,7 +1698,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 		else
 			return connector_status_unknown;
 	}
-	else  //SM768 Part
+	else if(sdev->specId == SPC_SM768)  //SM768 Part
 	{
 		if(connector->connector_type == DRM_MODE_CONNECTOR_DVII)
 		{
@@ -1336,6 +1804,169 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 		else
 			return connector_status_unknown;
 	}
+	else if(sdev->specId == SPC_SM770)  //SM770 Part   
+	{
+		if (connector->connector_type == DRM_MODE_CONNECTOR_DisplayPort)
+		{
+			if (sdev->m_connector & USE_HDMI0)
+			{
+				hw770_DP_Disable_Output(0);
+				hw770_DP_Clear_Channel(0);
+				dbg_msg("set DP0 connector_status_disconnected because HDMI0 connect\n");
+				sdev->m_connector = sdev->m_connector&(~USE_DP0);
+				return connector_status_disconnected;  
+			}
+
+			if (force_connect & USE_DP0){
+				sdev->m_connector = sdev->m_connector | USE_DP0;
+				return connector_status_connected;
+			}else if(force_connect){
+				sdev->m_connector = sdev->m_connector & (~USE_DP0);
+				return connector_status_disconnected;
+			}
+
+			if (DP_HPD_Detect(0))
+			{
+			
+				dbg_msg("detect DP0 connected\n");
+				sdev->m_connector = sdev->m_connector|USE_DP0;
+				return connector_status_connected;
+			}
+			else
+			{
+				dbg_msg("detect DP0 DO NOT connected. \n");
+				hw770_DP_Clear_Channel(0);
+				sdev->m_connector =sdev->m_connector&(~USE_DP0);
+				return connector_status_disconnected;
+
+			}
+		}
+		else if (connector->connector_type == DRM_MODE_CONNECTOR_eDP)
+		{
+
+			if (sdev->m_connector & USE_HDMI1)
+			{
+				hw770_DP_Disable_Output(1);
+				hw770_DP_Clear_Channel(1);
+				dbg_msg("set DP1 connector_status_disconnected because HDMI1 connect\n");
+				sdev->m_connector = sdev->m_connector&(~USE_DP1);
+				return connector_status_disconnected;  
+			}
+
+
+			if (force_connect & USE_DP1){
+				sdev->m_connector = sdev->m_connector | USE_DP1;
+				return connector_status_connected;
+			}else if(force_connect){
+				sdev->m_connector = sdev->m_connector & (~USE_DP1);
+				return connector_status_disconnected;
+			}
+
+			if (DP_HPD_Detect(1))
+			{
+				dbg_msg("detect DP1 connected\n");
+				sdev->m_connector = sdev->m_connector|USE_DP1;
+				return connector_status_connected;
+				
+
+			}
+			else
+			{
+				dbg_msg("detect DP1 DO NOT connected. \n");
+				hw770_DP_Clear_Channel(1);
+				sdev->m_connector =sdev->m_connector&(~USE_DP1);
+				return connector_status_disconnected;
+
+			}
+		}
+		else if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA)
+		{
+
+			if (force_connect & USE_HDMI0){
+				sdev->m_connector = sdev->m_connector | USE_HDMI0;
+				return connector_status_connected;
+			}else if(force_connect){
+				hw770_HDMI_Disable_Output(0);
+				sdev->m_connector = sdev->m_connector & (~USE_HDMI0);
+				return connector_status_disconnected;
+			}
+
+			if(ddk770_HDMI_HPD_Detect(0))
+			{
+			    dbg_msg("detect HDMI0 connected \n");
+				//hw770_hdmi_vga_mode(0);
+				sdev->m_connector = sdev->m_connector | USE_HDMI0;
+				return connector_status_connected; 
+			}
+			else
+			{
+				dbg_msg("detect HDMI0 DO NOT connected. \n");
+				hw770_HDMI_Disable_Output(0);
+				sdev->m_connector = sdev->m_connector&(~USE_HDMI0);
+				return connector_status_disconnected;
+			}
+		
+		}
+		else if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIB)
+		{
+
+			if (force_connect & USE_HDMI1){
+				sdev->m_connector = sdev->m_connector | USE_HDMI1;
+				return connector_status_connected;
+			}else if(force_connect){
+				hw770_HDMI_Disable_Output(1);
+				sdev->m_connector = sdev->m_connector & (~USE_HDMI1);
+				return connector_status_disconnected;
+			}
+
+			if(ddk770_HDMI_HPD_Detect(1))
+			{
+			    dbg_msg("detect HDMI1 connected \n");
+				//hw770_hdmi_vga_mode(1);
+				sdev->m_connector = sdev->m_connector | USE_HDMI1;
+				return connector_status_connected; 
+			}
+			else
+			{
+				dbg_msg("detect HDMI1 DO NOT connected. \n");
+				hw770_HDMI_Disable_Output(1);
+				sdev->m_connector = sdev->m_connector&(~USE_HDMI1);
+				return connector_status_disconnected;
+			}
+		
+		}
+		else if (connector->connector_type == DRM_MODE_CONNECTOR_DVID)
+		{
+
+			if (force_connect & USE_HDMI2){
+				sdev->m_connector = sdev->m_connector | USE_HDMI2;
+				return connector_status_connected;
+			}else if(force_connect){
+				hw770_HDMI_Disable_Output(2);
+				sdev->m_connector = sdev->m_connector & (~USE_HDMI2);
+				return connector_status_disconnected;
+			}
+
+			if(ddk770_HDMI_HPD_Detect(2))
+			{
+			    dbg_msg("detect HDMI2 connected \n");
+				//hw770_hdmi_vga_mode(2);
+				sdev->m_connector = sdev->m_connector | USE_HDMI2;
+				return connector_status_connected; 
+			}
+			else
+			{
+				dbg_msg("detect HDMI2 DO NOT connected. \n");
+				hw770_HDMI_Disable_Output(2);
+				sdev->m_connector = sdev->m_connector&(~USE_HDMI2);
+				return connector_status_disconnected;
+			}
+		
+		}
+
+		else
+			return connector_status_unknown;
+	}
 }
 
 static void smi_connector_destroy(struct drm_connector *connector)
@@ -1357,13 +1988,16 @@ static void smi_connector_destroy(struct drm_connector *connector)
 		sdev->vga_edid = NULL;
 	}
 
-	if(sdev->specId == SPC_SM768)
-	{
-		hw768_AdaptI2CCleanBus(connector);
-	}
-	else
+
+	if(sdev->specId == SPC_SM750)
 	{
 		hw750_AdaptI2CCleanBus(connector);
+	} else if(sdev->specId == SPC_SM768)
+	{
+		hw768_AdaptI2CCleanBus(connector);
+	} else if (sdev->specId == SPC_SM770)
+	{
+		//hw770_AdaptI2CCleanBus(connector);
 	}
 
 #if (KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE )
@@ -1401,6 +2035,7 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 	connector = &smi_connector->base;
 	smi_connector->i2c_hw_enabled = false;
 
+	if (sdev->specId == SPC_SM750 || sdev->specId == SPC_SM768) {
 	switch (index)
 	{
 		case 0:
@@ -1415,14 +2050,41 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 		default:
 			printk("error index of Connector\n");
 	}
+	}else if(sdev->specId == SPC_SM770){
+		switch (index)
+		{
+			case 0:
+				drm_connector_init(dev, connector, &smi_vga_connector_funcs, DRM_MODE_CONNECTOR_DisplayPort);
+				break;
+			case 1:
+				drm_connector_init(dev, connector, &smi_vga_connector_funcs, DRM_MODE_CONNECTOR_eDP);
+				break;
+			case 2:
+				drm_connector_init(dev, connector, &smi_vga_connector_funcs, DRM_MODE_CONNECTOR_HDMIA);
+				break;
+			case 3:
+				drm_connector_init(dev, connector, &smi_vga_connector_funcs, DRM_MODE_CONNECTOR_HDMIB);
+				break;
+			case 4:
+				drm_connector_init(dev, connector, &smi_vga_connector_funcs, DRM_MODE_CONNECTOR_DVID);
+				break;
+			default:
+				printk("error index of Connector\n");
+		}
+	}
+
 
 	if (sdev->specId == SPC_SM750) 
 	{
 		hw750_AdaptI2CInit(smi_connector);
 	}
-	else
+	else if(sdev->specId == SPC_SM768)
 	{
 		hw768_AdaptI2CInit(smi_connector);
+	}
+	else if(sdev->specId == SPC_SM770)
+	{
+		hw770_AdaptI2CInit(smi_connector);
 	}
 
 	drm_connector_helper_add(connector, &smi_vga_connector_helper_funcs);
@@ -1441,11 +2103,11 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 
 int smi_modeset_init(struct smi_device *cdev)
 {
-	int ret, index, max_index = 2;
+	int index, max_enc = MAX_ENCODER(cdev->specId), max_ctrl = MAX_CRTC(cdev->specId);
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
 	struct smi_crtc *smi_crtc;
-	
+	int ret;
 	if(!lvds_channel)
 		lcd_scale = 0;
 
@@ -1471,14 +2133,20 @@ int smi_modeset_init(struct smi_device *cdev)
 	cdev->dev->mode_config.max_width = SMI_MAX_FB_WIDTH;
 	cdev->dev->mode_config.max_height = SMI_MAX_FB_HEIGHT;
 
-	if (cdev->specId == SPC_SM750) { // limit to maximum size supported+		
+	if (cdev->specId == SPC_SM768) { 
+		cdev->dev->mode_config.max_width = SMI_MAX_FB_WIDTH;
+		cdev->dev->mode_config.max_height = SMI_MAX_FB_HEIGHT;
+	}else if (cdev->specId == SPC_SM750) { 	
 		cdev->dev->mode_config.max_width = 3840;
 		cdev->dev->mode_config.max_height = 2160;
+	}else if  (cdev->specId == SPC_SM770) { 	
+		cdev->dev->mode_config.max_width = 16384;
+		cdev->dev->mode_config.max_height = 16384;
 		}
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))
-	cdev->dev->mode_config.cursor_width = 64;
-	cdev->dev->mode_config.cursor_height = 64;
+	cdev->dev->mode_config.cursor_width = CURSOR_WIDTH;
+	cdev->dev->mode_config.cursor_height = CURSOR_HEIGHT;
 #endif
 
 
@@ -1487,16 +2155,13 @@ int smi_modeset_init(struct smi_device *cdev)
 	cdev->dev->mode_config.prefer_shadow = 1;
 
 
-	for(index = 0; index < MAX_CRTC ; index ++)
+	for(index = 0; index < max_ctrl ; index ++)
 	{
 		smi_crtc = smi_crtc_init(cdev->dev, index);
 		smi_crtc->crtc_index = index;
 	}
 	
-	if(cdev->specId == SPC_SM768)
-		max_index = MAX_ENCODER;
-	
-	for(index = 0; index < max_index ; index ++)
+	for(index = 0; index < max_enc ; index ++)
 	{
 		encoder = smi_encoder_init(cdev->dev, index);
 		if (!encoder) {

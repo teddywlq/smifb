@@ -13,20 +13,7 @@
 #define _DISPLAY_H_
 
 #include "ddk750_mode.h"
-
-typedef enum _disp_path_t
-{
-    PANEL_PATH = 0,
-    CRT_PATH   = 1,
-}
-disp_path_t;
-
-typedef enum _disp_state_t
-{
-    DISP_OFF = 0,
-    DISP_ON  = 1,
-}
-disp_state_t;
+#include "../hw_com.h"
 
 typedef enum _disp_output_t
 {
@@ -92,13 +79,13 @@ void setDisplayControl(disp_control_t dispControl, disp_state_t dispState);
  * Input:
  *      output          - Logical Display output
  *      dispCtrlUsage   - Display Control Flag Usage:
- *                          0 : Use primary display control (PRIMARY_CTRL) to control 
+ *                          0 : Use primary display control (CHANNEL0_CTRL) to control 
  *                              primary output (LCD1 & CRT1) and use secondary display 
- *                              control (SECONDARY_CTRL) to control secondary output 
+ *                              control (CHANNEL1_CTRL) to control secondary output 
  *                              (CRT2 & LCD2)
- *                          1 : Use primary display control (PRIMARY_CTRL) to control 
+ *                          1 : Use primary display control (CHANNEL0_CTRL) to control 
  *                              secondary output (LCD2 & CRT2) and use secondary display 
- *                              control (SECONDARY_CTRL) to control primary output 
+ *                              control (CHANNEL1_CTRL) to control primary output 
  *                              (LCD1 & CRT1)
  *
  * Output:
@@ -123,13 +110,13 @@ long setLogicalDispOutput(
  *							1 : Enable secondary display control
  *      output          - Logical Display output
  *      dispCtrlUsage   - Display Control Flag Usage:
- *                          0 : Use primary display control (PRIMARY_CTRL) to control 
+ *                          0 : Use primary display control (CHANNEL0_CTRL) to control 
  *                              primary output (LCD1 & CRT1) and use secondary display 
- *                              control (SECONDARY_CTRL) to control secondary output 
+ *                              control (CHANNEL1_CTRL) to control secondary output 
  *                              (CRT2 & LCD2)
- *                          1 : Use primary display control (PRIMARY_CTRL) to control 
+ *                          1 : Use primary display control (CHANNEL0_CTRL) to control 
  *                              secondary output (LCD2 & CRT2) and use secondary display 
- *                              control (SECONDARY_CTRL) to control primary output 
+ *                              control (CHANNEL1_CTRL) to control primary output 
  *                              (LCD1 & CRT1)
  *
  * Output:
@@ -144,7 +131,7 @@ long setLogicalDispOutputExt(
 /*
  * Use vertical sync as time delay function.
  * Input:
- *          dispControl - Display Control (PRIMARY_CTRL or SECONDARY_CTRL) 
+ *          dispControl - Display Control (CHANNEL0_CTRL or CHANNEL1_CTRL) 
  *          vsync_count - Number of vertical sync to wait.
  *
  * Note:
@@ -158,7 +145,7 @@ void waitNextVerticalSync(disp_control_t dispControl, unsigned long vsync_count)
  * until the current line reaches the Vertical Sync line.
  * This function is really useful when flipping display to prevent tearing.
  *
- * Input: display control (PRIMARY_CTRL or SECONDARY_CTRL)
+ * Input: display control (CHANNEL0_CTRL or CHANNEL1_CTRL)
  */
 void waitVSyncLine(disp_control_t dispControl);
 

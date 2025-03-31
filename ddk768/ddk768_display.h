@@ -12,19 +12,8 @@
 #ifndef _DDK768_DISPLAY_H_
 #define _DDK768_DISPLAY_H_
 #include "ddk768_mode.h"
-typedef enum _disp_path_t
-{
-    CHANNEL0_PATH = 0,
-    CHANNEL1_PATH = 1,
-}
-disp_path_t;
+#include "../hw_com.h"
 
-typedef enum _disp_state_t
-{
-    DISP_OFF = 0,
-    DISP_ON  = 1,
-}
-disp_state_t;
 
 //Cheok: obsolete for Falcon, delete after old code cleans up.
 typedef enum _disp_output_t
@@ -61,16 +50,6 @@ typedef enum _disp_format_t
     DOUBLE_PIXEL_48BIT
 }
 disp_format_t;
-
-typedef enum _DISP_DPMS_t
-{
-    DISP_DPMS_ON,
-    DISP_DPMS_STANDBY,
-    DISP_DPMS_SUSPEND,
-    DISP_DPMS_OFF
-}
-DISP_DPMS_t;
-
 
 
 /*

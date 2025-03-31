@@ -22,6 +22,8 @@
 #endif
 
 
+#include "hw770.h"
+
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
 static int get_connectors_for_crtc(struct drm_crtc *crtc,
@@ -256,18 +258,15 @@ static void smi_cursor_atomic_update(struct drm_plane *plane,struct drm_plane_st
 	int ret = 0;
 	int x, y;
 	struct smi_crtc * smi_crtc = to_smi_crtc(crtc);	
-	disp_control_t disp_crtc;
+
 	int i, ctrl_index = 0, max_enc = 0;
 	struct smi_device *sdev = plane->dev->dev_private;
-
+	disp_control_t disp_ctrl;
 	if (!plane->state->crtc || !plane->state->fb)
 		return;
 	
 
-	if(sdev->specId == SPC_SM750)
-		max_enc = MAX_CRTC;
-	else
-		max_enc = MAX_ENCODER;
+	max_enc = MAX_ENCODER(sdev->specId);
 
 	for(i = 0;i < max_enc; i++)
 	{
@@ -277,12 +276,15 @@ static void smi_cursor_atomic_update(struct drm_plane *plane,struct drm_plane_st
 			break;
 		}
 	}
-	disp_crtc = (ctrl_index == SMI1_CTRL)?SMI1_CTRL:SMI0_CTRL;
+	disp_ctrl = (ctrl_index == CHANNEL1_CTRL)?CHANNEL1_CTRL:CHANNEL0_CTRL;
 
-	if(ctrl_index >= MAX_CRTC)  //calc which path should we use for HDMI.
-	{
-		disp_crtc= (disp_control_t)smi_calc_hdmi_ctrl(sdev->m_connector);
+	if(sdev->specId == SPC_SM768){
+		if(ctrl_index >= MAX_CRTC_768)  //calc which path should we use for HDMI.
+			disp_ctrl = (disp_control_t)smi_calc_hdmi_ctrl(sdev->m_connector);
 	}
+	else if(sdev->specId == SPC_SM770)
+		disp_ctrl = (disp_control_t)smi_encoder_crtc_index_changed(ctrl_index);
+	
 
 
 	if (fb != old_state->fb) {
@@ -315,13 +317,21 @@ static void smi_cursor_atomic_update(struct drm_plane *plane,struct drm_plane_st
 
 	if(sdev->specId == SPC_SM750)
 	{
-		ddk750_enableCursor(disp_crtc, 1);
-		ddk750_setCursorPosition(disp_crtc, x<0?-x:x, y<0?-y:y, y<0?1:0,x<0?1:0);
+		ddk750_enableCursor(disp_ctrl, 1);
+		ddk750_setCursorPosition(disp_ctrl, x<0?-x:x, y<0?-y:y, y<0?1:0,x<0?1:0);
 	}
-	else
+	else if(sdev->specId == SPC_SM768)
 	{
-		ddk768_enableCursor(disp_crtc, 3);
-		ddk768_setCursorPosition(disp_crtc, x<0?-x:x, y<0?-y:y, y<0?1:0,x<0?1:0);
+		ddk768_enableCursor(disp_ctrl, 3);
+		ddk768_setCursorPosition(disp_ctrl, x<0?-x:x, y<0?-y:y, y<0?1:0,x<0?1:0);
+	}
+	else if(sdev->specId == SPC_SM770)
+	{		
+		ddk770_enableCursor(disp_ctrl, 3);			
+		ddk770_setCursorPosition(disp_ctrl, x < 0 ? -x : x, y < 0 ? -y : y, y < 0 ? 1 : 0,
+					 x < 0 ? 1 : 0);
+			
+	
 	}
 
 	//LEAVE();
@@ -332,8 +342,7 @@ void smi_cursor_atomic_disable(struct drm_plane *plane,
 {
 
 	struct drm_crtc *UNUSED(crtc) = plane->state->crtc;
-	struct smi_device *sdev = plane->dev->dev_private;
-	
+	struct smi_device *sdev = plane->dev->dev_private;	
 	disp_control_t UNUSED(disp_crtc);
 	int UNUSED(i), ctrl_index, UNUSED(max_enc);
 	ctrl_index = 0;
@@ -345,14 +354,19 @@ void smi_cursor_atomic_disable(struct drm_plane *plane,
 
 	if(sdev->specId == SPC_SM750)
 	{
-		ddk750_enableCursor(SMI0_CTRL, 0);
-		ddk750_enableCursor(SMI1_CTRL, 0);
+		ddk750_enableCursor(CHANNEL0_CTRL, 0);
+		ddk750_enableCursor(CHANNEL1_CTRL, 0);
 	}
-	else
+	else if(sdev->specId == SPC_SM768)
 	{
-		ddk768_enableCursor(SMI0_CTRL, 0);
-		ddk768_enableCursor(SMI1_CTRL, 0);
-	}	
+		ddk768_enableCursor(CHANNEL0_CTRL, 0);
+		ddk768_enableCursor(CHANNEL1_CTRL, 0);
+	}else if(sdev->specId == SPC_SM770)
+	{
+		ddk770_enableCursor(CHANNEL0_CTRL, 0);
+		ddk770_enableCursor(CHANNEL1_CTRL, 0);
+		ddk770_enableCursor(CHANNEL2_CTRL, 0);
+	}
 
 
 }
@@ -369,16 +383,14 @@ static int smi_plane_prepare_fb(struct drm_plane *plane, struct drm_plane_state 
 	int ret;
 	u64 gpu_addr;
 
-	disp_control_t disp_crtc;
+
+	disp_control_t disp_ctrl;
 	int i = 0, ctrl_index = 0, max_enc = 0;
 	struct smi_device *sdev = plane->dev->dev_private;
 	ENTER();
 
 
-	if(sdev->specId == SPC_SM750)
-		max_enc = MAX_CRTC;
-	else
-		max_enc = MAX_ENCODER;
+	max_enc = MAX_ENCODER(sdev->specId);
 
 	for(i = 0;i < max_enc; i++)
 	{
@@ -388,12 +400,15 @@ static int smi_plane_prepare_fb(struct drm_plane *plane, struct drm_plane_state 
 			break;
 		}
 	}
-	disp_crtc = (ctrl_index == SMI1_CTRL)?SMI1_CTRL:SMI0_CTRL;
+	disp_ctrl = (ctrl_index == CHANNEL1_CTRL)?CHANNEL1_CTRL:CHANNEL0_CTRL;
 
-	if(ctrl_index >= MAX_CRTC)  //calc which path should we use for HDMI.
-	{
-		disp_crtc= (disp_control_t)smi_calc_hdmi_ctrl(sdev->m_connector);
+	if(sdev->specId == SPC_SM768){
+		if(ctrl_index >= MAX_CRTC_768)  //calc which path should we use for HDMI.
+			disp_ctrl = (disp_control_t)smi_calc_hdmi_ctrl(sdev->m_connector);
 	}
+	else if(sdev->specId == SPC_SM770)
+		disp_ctrl = (disp_control_t)smi_encoder_crtc_index_changed(ctrl_index);
+	
 
 
 	if (!new_state->fb)
@@ -421,11 +436,14 @@ static int smi_plane_prepare_fb(struct drm_plane *plane, struct drm_plane_state 
 	
 	if(sdev->specId == SPC_SM750)
 	{
-		ddk750_initCursor(disp_crtc,(u32)gpu_addr,BPP16_BLACK,BPP16_WHITE,BPP16_BLUE);
+		ddk750_initCursor(disp_ctrl,(u32)gpu_addr,BPP16_BLACK,BPP16_WHITE,BPP16_BLUE);
 	}
-	else
+	else if(sdev->specId == SPC_SM768)
 	{
-		ddk768_initCursor(disp_crtc,(u32)gpu_addr,BPP32_BLACK,BPP32_WHITE,BPP32_BLUE);
+		ddk768_initCursor(disp_ctrl,(u32)gpu_addr,BPP32_BLACK,BPP32_WHITE,BPP32_BLUE);
+	}else if(sdev->specId == SPC_SM770)
+	{
+		ddk770_initCursor(disp_ctrl, (u32)gpu_addr, BPP32_BLACK, BPP32_WHITE,BPP32_BLUE);
 	}	
 
 	LEAVE(0);
@@ -443,16 +461,21 @@ static void smi_plane_cleanup_fb(struct drm_plane *plane, struct drm_plane_state
 	struct smi_device *sdev = plane->dev->dev_private;
 	ENTER();
 	
-	if(sdev->specId == SPC_SM750)
+	if (sdev->specId == SPC_SM750) 
 	{
-		ddk750_enableCursor(SMI0_CTRL, 0);
-		ddk750_enableCursor(SMI1_CTRL, 0);
+		ddk750_enableCursor(CHANNEL0_CTRL, 0);
+		ddk750_enableCursor(CHANNEL1_CTRL, 0);
 	}
-	else
+	 else if (sdev->specId == SPC_SM768) 
 	{
-		ddk768_enableCursor(SMI0_CTRL, 0);
-		ddk768_enableCursor(SMI1_CTRL, 0);
+		ddk768_enableCursor(CHANNEL0_CTRL, 0);
+		ddk768_enableCursor(CHANNEL1_CTRL, 0);
 	}	
+	else if (sdev->specId == SPC_SM770) {
+		ddk770_enableCursor(CHANNEL0_CTRL, 0);
+		ddk770_enableCursor(CHANNEL1_CTRL, 0);
+		ddk770_enableCursor(CHANNEL2_CTRL, 0);
+	}
 
 	if (!plane->state->fb) {
 		LEAVE();

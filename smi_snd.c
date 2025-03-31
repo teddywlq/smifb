@@ -37,6 +37,7 @@
 
 #include "smi_drv.h"
 #include "hw768.h"
+#include "hw770.h"
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0))
 
@@ -48,16 +49,16 @@
 struct sm768chip *chip_irq_id=NULL;/*chip_irq_id is use for request and free irq*/
 int use_wm8978 = 0;
 
-static int SM768_AudioInit(unsigned long wordLength, unsigned long sampleRate)
+static int SMI_AudioInit(struct smi_device *sdev, unsigned long wordLength)
 {
-	// Set up I2S and GPIO registers to transmit/receive data.
-    iisOpen(wordLength, sampleRate);
-    //Set I2S to DMA 256 DWord from SRAM starting at location 0 of SRAM
-    iisTxDmaSetup(0,SRAM_SECTION_SIZE);
 
+	int sample_rate = 48000;
 
 	// Init audio codec
-	if(use_wm8978){
+	if(sdev->specId == SPC_SM768)
+	{
+		if(use_wm8978)
+		{
 		printk("Use WM8978 Codec\n");
 		if (WM8978_Init())
 		{			
@@ -65,13 +66,41 @@ static int SM768_AudioInit(unsigned long wordLength, unsigned long sampleRate)
 			WM8978_DeInit();
 			
 		}
-	}else{
+		}
+		else
+		{
 		printk("Use UDA1345 Codec\n");
 		if(uda1345_init())
 		 {   
 		   printk("Init UDA1345 Codec failed\n");
 		   uda1345_deinit();
 		 }
+	}
+
+		if (ddk768_getCrystalType())
+			sample_rate = 48000;
+		else
+			sample_rate = 44100;
+
+       	// Set up I2S and GPIO registers to transmit/receive data.
+        iisOpen(wordLength, sample_rate);
+		//Set I2S to DMA 256 DWord from SRAM starting at location 0 of SRAM
+		iisTxDmaSetup(0,SRAM_SECTION_SIZE);
+
+	}
+	else if(sdev->specId == SPC_SM770)
+	{
+		if(use_wm8978){
+			printk("Use ddk770_WM8978 Codec\n");
+			if (ddk770_WM8978_Init())
+			{			
+				printk("Init ddk770_WM8978 Codec failed\n");
+				ddk770_WM8978_DeInit();
+					
+			} 
+		}
+
+		hw770_AudioInit(wordLength, sample_rate);
 	}
 
     return 0;
@@ -81,13 +110,17 @@ static int SM768_AudioInit(unsigned long wordLength, unsigned long sampleRate)
 /*
  * This function call iis driver interface iisStart() to start play audio. 
  */
-static int SM768_AudioStart(void)
+static int SMI_AudioStart(struct smi_device *sdev)
 {
+	if(sdev->specId == SPC_SM768)
+	{
+		if(use_wm8978)
+		{
 
+		}
+		else
 	
-	if(use_wm8978){
-  
-	}else{
+		{
 	    uda1345_setpower(ADCOFF_DACON);
 		uda1345_setmute(NO_MUTE);
 	}
@@ -95,6 +128,11 @@ static int SM768_AudioStart(void)
 	HDMI_Audio_Unmute();
 
 	iisStart();
+	}
+	else if(sdev->specId == SPC_SM770)
+	{
+         hw770_AudioStart();
+	}
 	
     return 0;
 }
@@ -102,11 +140,17 @@ static int SM768_AudioStart(void)
 /*
  * Stop audio. 
  */
-static int SM768_AudioStop(void)
+static int SMI_AudioStop(struct smi_device *sdev)
 {
 
-	if(use_wm8978){
-	}else{
+    if(sdev->specId == SPC_SM768)
+	{
+		if(use_wm8978)
+		{
+					
+		}
+		else
+		{
 		uda1345_setmute(MUTE);
 		uda1345_setpower(ADCOFF_DACOFF);
 	}
@@ -114,26 +158,43 @@ static int SM768_AudioStop(void)
 	HDMI_Audio_Mute();
 	
 	iisStop();
+	}
+	else if(sdev->specId == SPC_SM770)
+	{
+        hw770_AudioStop();
+	}
 	
     return 0;
 }
 
 
 
-static int SM768_AudioDeinit(void)
+static int SMI_AudioDeinit(struct smi_device *sdev)
 {
-
+	if (sdev->specId == SPC_SM768)
+	{
 	iisStop();
-	iisClose();
 
-	if(use_wm8978)
+		if (use_wm8978)
+		{
 		WM8978_DeInit();
+		}
 	else
+		{
 		uda1345_deinit();
+		}
 	
 	sb_IRQMask(SB_IRQ_VAL_I2S);		
 	iisClearRawInt();
     ddk768_enableI2S(0); 
+	}
+	else if (sdev->specId == SPC_SM770)
+	{
+		if (use_wm8978)
+			ddk770_WM8978_DeInit();
+
+		hw770_AudioDeinit();
+	}
 
 	return 0;
 }
@@ -185,19 +246,33 @@ static int snd_falconi2s_put_hw_play_volume(struct snd_kcontrol *kcontrol,
 
 	struct sm768chip *chip = kcontrol->private_data;
 	int changed = 0;
-	unsigned short UNUSED(Reg_Vol);
 	u8 vol;
-	dbg_msg("snd_falconi2s_put_hw_volume:%ld\n",ucontrol->value.integer.value[0]);
+	dbg_msg("snd_falconi2s_put_hw_volume:%ld\n", ucontrol->value.integer.value[0]);
 
-	if (chip->playback_vol!= ucontrol->value.integer.value[0]) {
+	if (chip->playback_vol!= ucontrol->value.integer.value[0]) 
+	{
 		vol = chip->playback_vol = ucontrol->value.integer.value[0];
 
-		if(use_wm8978){
+		if(chip->chipId == SPC_SM768)
+		{
+			if(use_wm8978)
+			{	
 			WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
 			WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
-		}else{
+			}
+			else
+			{
 			uda1345_setvolume(VolAuDrvToCodec(vol));
 		}
+		}	
+		else if(chip->chipId == SPC_SM770)
+		{
+			if(use_wm8978){
+				ddk770_WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
+				ddk770_WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
+			}
+		}
+
 		changed = 1;
 	}
 
@@ -221,20 +296,33 @@ static int snd_falconi2s_put_hw_capture_volume(struct snd_kcontrol *kcontrol,
 {
 	struct sm768chip *chip = kcontrol->private_data;
 	int changed = 0;
-	unsigned short UNUSED(Reg_Vol);
 	u8 vol;
-	dbg_msg("snd_falconi2s_put_hw_volume:%ld\n",ucontrol->value.integer.value[0]);
+	dbg_msg("snd_falconi2s_put_hw_volume:%ld\n", ucontrol->value.integer.value[0]);
 
 
-	if (chip->capture_vol!= ucontrol->value.integer.value[0]) {
+	if (chip->capture_vol!= ucontrol->value.integer.value[0]) 
+	{
 		vol = chip->capture_vol = ucontrol->value.integer.value[0];
 
-		if(use_wm8978){
+		if(chip->chipId == SPC_SM768)
+		{
+			if(use_wm8978)
+			{
 					WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
 					WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
-		}else{
+			}
+			else
+			{
 					uda1345_setvolume(VolAuDrvToCodec(vol));
 		}
+	    }
+		else if(chip->chipId == SPC_SM770)
+		{
+			if(use_wm8978){
+				ddk770_WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
+				ddk770_WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
+			}
+		}		
 
 		changed = 1;
 	}
@@ -271,13 +359,15 @@ static struct snd_pcm_hardware snd_falconi2s_playback_hw = {
                    SNDRV_PCM_INFO_BLOCK_TRANSFER |
                    SNDRV_PCM_INFO_MMAP_VALID),
 	.formats =		  SNDRV_PCM_FMTBIT_S16_LE,
-	.rates =			  SNDRV_PCM_RATE_48000,//this value means both of 44100 and 48000 can work 
+	//this value means both of 44100 and 48000 can work
+	.rates = SNDRV_PCM_RATE_48000,
 	.rate_min =		  48000,
 	.rate_max =		  48000,
 	.channels_min =	  2,
 	.channels_max =	  2,
-	.buffer_bytes_max = P_PERIOD_BYTE*P_PERIOD_MAX,//actually total length should less than 4096*1024.
-	.period_bytes_min = P_PERIOD_BYTE ,
+	//actually total length should less than 4096*1024.
+	.buffer_bytes_max = P_PERIOD_BYTE * P_PERIOD_MAX,
+	.period_bytes_min = P_PERIOD_BYTE,
 	.period_bytes_max = P_PERIOD_BYTE,
 	.periods_min =	  P_PERIOD_MIN,
 	.periods_max =	  P_PERIOD_MAX,
@@ -295,8 +385,9 @@ static struct snd_pcm_hardware snd_falconi2s_capture_hw = {
 	.rate_max =         48000,
 	.channels_min =     2,
 	.channels_max =     2,
-	.buffer_bytes_max = P_PERIOD_BYTE*P_PERIOD_MAX,//actually total length should less than 4096*1024.
-	.period_bytes_min = P_PERIOD_BYTE ,
+	//actually total length should less than 4096*1024.
+	.buffer_bytes_max = P_PERIOD_BYTE * P_PERIOD_MAX,
+	.period_bytes_min = P_PERIOD_BYTE,
 	.period_bytes_max = P_PERIOD_BYTE,
 	.periods_min =	  P_PERIOD_MIN,
 	.periods_max =	  P_PERIOD_MAX,
@@ -378,7 +469,7 @@ static int snd_falconi2s_pcm_hw_free(struct snd_pcm_substream *substream)
 static int snd_falconi2s_pcm_prepare(struct snd_pcm_substream *substream)
 {
 
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime __attribute__((unused)) = substream->runtime;
 	struct sm768chip *chip = snd_pcm_substream_chip(substream);
 	dbg_msg("snd_falconi2s_pcm_prepare\n");
 
@@ -573,6 +664,45 @@ static int snd_smi_capture_copy_data(struct sm768chip *chip,int sramTxSection)
 /*
  * interrupt handler
  */
+static irqreturn_t snd_smi770_interrupt(int irq, void *dev_id)
+{
+	
+	struct sm768chip *chip = dev_id;
+
+	int sramTxSection = 0; 
+
+	if(hw770_check_iis_interrupt())
+	{
+		unsigned long iParameter = 0;
+
+		ddk770_iisClearRawInt(); //clear int
+
+		iParameter = ddk770_iisDmaPointer();
+		
+		//SRAM is logically divided into 2 portions (1024 byte each)
+		//Check I2S DMA pointer to find out which portion is active.
+		if(iParameter >= 255)
+			//Fill top half SRAM if lower half is active
+			sramTxSection = 0;
+		else
+			//Fill lower half SRAM if top half is active
+			sramTxSection = 1;
+
+		snd_smi_play_copy_data(chip,sramTxSection);   
+		snd_smi_capture_copy_data(chip,sramTxSection);
+
+		return IRQ_HANDLED;
+	}
+	else
+		return IRQ_NONE;
+}
+
+
+
+
+/*
+ * interrupt handler
+ */
 static irqreturn_t snd_smi_interrupt(int irq, void *dev_id)
 {
 	
@@ -613,13 +743,14 @@ static int snd_falconi2s_create(struct snd_card *card,
                                          struct sm768chip **smichip)
 {
 	int err;
-	int sample_rate = 44100;
-	struct pci_dev *pdev = dev->pdev;
+	struct pci_dev *pdev;
 	struct smi_device *smi_device = dev->dev_private;
 	struct sm768chip *chip;
 	static struct snd_device_ops ops = {
 		.dev_free = snd_falconi2s_dev_free,
 	};
+
+	pdev = to_pci_dev(dev->dev);
 
 	*smichip = NULL;
 
@@ -660,17 +791,12 @@ static int snd_falconi2s_create(struct snd_card *card,
 
 	dbg_msg("Audio pci irq :%d\n",chip->irq);
 	
-	if (ddk768_getCrystalType())
-		sample_rate = 48000;
-	else
-		sample_rate = 44100;
-
-	if(SM768_AudioInit(SAMPLE_BITS, sample_rate)) {
-		err_msg("Audio init failed!\n");	
+	if(SMI_AudioInit(smi_device,SAMPLE_BITS)) {
+		dev_err(&pdev->dev, "Audio init failed!\n");
 		snd_falconi2s_free(chip);
 		return -1;
 	}
-	SM768_AudioStart();
+	SMI_AudioStart(smi_device);
 
 	//clear SRAM
 	memset32((void *)((unsigned long)chip->pvReg + SRAM_OUTPUT_BASE), 0, SRAM_TOTAL_SIZE/4);
@@ -678,17 +804,32 @@ static int snd_falconi2s_create(struct snd_card *card,
 	chip_irq_id=chip;/*Record chip_irq_id which will use in free_irq*/
 	dbg_msg("chip_irq_id=%p\n", chip_irq_id);
 
-	iisClearRawInt();//clear int
+	if(smi_device->specId == SPC_SM770){
+		ddk770_iisClearRawInt();
 
 	//Setup ISR. The ISR will move more data from DDR to SRAM.
+		if (request_irq(pdev->irq, snd_smi770_interrupt, IRQF_SHARED,
+			KBUILD_MODNAME, chip_irq_id)) {
+			dev_err(&pdev->dev, "unable to grab IRQ %d\n", pdev->irq);
+			snd_falconi2s_free(chip);
+			return -EBUSY;
+		}
+
+		ddk770_sb_IRQUnmask(21);
 	
+	}else{
+		iisClearRawInt();//clear int
+		//Setup ISR. The ISR will move more data from DDR to SRAM.
 	if (request_irq(pdev->irq, snd_smi_interrupt, IRQF_SHARED,
 		KBUILD_MODNAME, chip_irq_id)) {
-		err_msg("unable to grab IRQ %d\n", pdev->irq);
+		dev_err(&pdev->dev, "unable to grab IRQ %d\n", pdev->irq);
 		snd_falconi2s_free(chip);
 		return -EBUSY;
 	}
 	sb_IRQUnmask(SB_IRQ_VAL_I2S); 
+	}
+
+		
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,18,0)
 	snd_card_set_dev(card, &pdev->dev);
@@ -703,11 +844,14 @@ static int snd_falconi2s_create(struct snd_card *card,
 int smi_audio_init(struct drm_device *dev)
 {
 	int idx, err;
-	struct pci_dev *pdev = dev->pdev;
+	struct pci_dev *pdev;
 	struct smi_device *sdev = dev->dev_private;
 	struct snd_pcm *pcm;
 	struct snd_card *card;
 	struct sm768chip *chip;
+
+
+	pdev = to_pci_dev(dev->dev);
 
 	if(audio_en == 1)
 		use_wm8978 = 0;
@@ -725,6 +869,9 @@ int smi_audio_init(struct drm_device *dev)
 		return err;
 
 	err = snd_falconi2s_create(card, dev, &chip);
+
+	chip->chipId = sdev->specId;
+
 	if (err < 0) {
 		snd_card_free(card);
       		return err;
@@ -772,45 +919,42 @@ int smi_audio_init(struct drm_device *dev)
 
 void smi_audio_remove(struct drm_device *dev)
 {
-	struct pci_dev *pdev = dev->pdev;
+	struct pci_dev *pdev;
 	struct smi_device *sdev = dev->dev_private;
 	struct snd_card *card = sdev->card;
 
-	inf_msg("smi_pci_remove\n");
+
+	pdev = to_pci_dev(dev->dev);
 	
 	dbg_msg("perpare to free irq, pci irq:%u, chip_irq_id=0x%p\n", pdev->irq, chip_irq_id);
 	if(pdev->irq){				
 		free_irq(pdev->irq, chip_irq_id);
 		dbg_msg("free irq\n");
 	}
-	SM768_AudioStop();
-	SM768_AudioDeinit();
+	SMI_AudioStop(sdev);
+	SMI_AudioDeinit(sdev);
 
 	snd_card_free(card);
 
 }
 
-void smi_audio_resume()
+void smi_audio_resume(struct smi_device *sdev)
 {
 
-	int sample_rate = 44100;
+	SMI_AudioInit(sdev,SAMPLE_BITS);
+	SMI_AudioStart(sdev);
 	
-	if (ddk768_getCrystalType())
-			sample_rate = 48000;
+	if(sdev->specId == SPC_SM770)
+		ddk770_sb_IRQUnmask(21);
 		else
-			sample_rate = 44100;
-	
-	SM768_AudioInit(SAMPLE_BITS, sample_rate);
-	SM768_AudioStart();
-
 	sb_IRQUnmask(SB_IRQ_VAL_I2S);
 }
 
 
-void smi_audio_suspend()
+void smi_audio_suspend(struct smi_device *sdev)
 {
-	SM768_AudioStop();
-	SM768_AudioDeinit();
+	SMI_AudioStop(sdev);
+	SMI_AudioDeinit(sdev);
 }
 
 

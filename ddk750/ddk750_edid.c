@@ -34,13 +34,13 @@
    which is temporarily used in this DDK. */
 #define EDID_DEVICE_I2C_ADDRESS             0xA0
 
-/* GPIO used for the I2C on the PANEL_PATH size  */
+/* GPIO used for the I2C on the SMI0_PATH size  */
 #define EDID_PANEL_I2C_SCL                  DEFAULT_I2C_SCL
 #define EDID_PANEL_I2C_SDA                  DEFAULT_I2C_SDA
 
-/* GPIO used for the I2C on the CRT_PATH size.
+/* GPIO used for the I2C on the SMI1_PATH size.
    These GPIO pins only available in the Evaluation Board version 2.2.
-   Need to find out which pins are used for the CRT_PATH i2c. */
+   Need to find out which pins are used for the SMI1_PATH i2c. */
 #define EDID_CRT_I2C_SCL                    17
 #define EDID_CRT_I2C_SDA                    18
 

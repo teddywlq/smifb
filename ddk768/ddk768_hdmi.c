@@ -125,7 +125,7 @@ typedef struct _hdmi_interrupt_t
     void (*handler)(void);
 }
 hdmi_interrupt_t;
-
+#if 0
 static hdmi_interrupt_t *g_pHdmiIntHandlers = ((hdmi_interrupt_t *)0);
 
 /* HDMI Interrupt Service Routine */
@@ -156,7 +156,7 @@ void hdmiISR(
         writeHDMIRegister (X95_INT2_ST, 0xFF);
     }            
 }
-
+#endif
 /*
  * This is the main interrupt hook for HDMI engine.
  */

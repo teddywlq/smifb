@@ -38,27 +38,28 @@
 
 #define DRIVER_NAME		"smifb"
 #define DRIVER_DESC		"SiliconMotion GPU DRM Driver"
-#define DRIVER_DATE		"20250313"
+#define DRIVER_DATE		"20250329"
 
 #define DRIVER_MAJOR		1
-#define DRIVER_MINOR		4
-#define DRIVER_PATCHLEVEL	2
+#define DRIVER_MINOR		5
+#define DRIVER_PATCHLEVEL	0
 
 #define SMIFB_CONN_LIMIT 3
 
 
 
 #define RELEASE_TYPE "Linux DRM Display Driver Release"
-#define SUPPORT_CHIP " \t\tSM750, SM768\n"
+#define SUPPORT_CHIP " SM750, SM768, SM770"
 
 
-#define _version_	"1.4.2.0"
+#define _version_	"1.5.0.0"
 
 #undef  NO_WC
 
 #ifdef CONFIG_CPU_LOONGSON3
 #define NO_WC
 #endif
+
 
 
 extern int smi_pat;
@@ -119,10 +120,25 @@ extern int smi_indent;
 #define UNUSED(x) x
 #endif
 
+#define USE_I2C_ADAPTER 1
+
 #define SMI_MAX_FB_HEIGHT 8192
 #define SMI_MAX_FB_WIDTH 8192
 
+#define MAX_CRTC_750 2
+#define MAX_CRTC_768 2
+#define MAX_CRTC_770 3
+#define MAX_CRTC(specId) (specId == SPC_SM750)? MAX_CRTC_750: (specId == SPC_SM768)? MAX_CRTC_768:MAX_CRTC_770
+
+#define MAX_ENCODER_750 2
+#define MAX_ENCODER_768 3
+#define MAX_ENCODER_770 5
+#define MAX_ENCODER(specId) (specId == SPC_SM750)? MAX_ENCODER_750: (specId == SPC_SM768)? MAX_ENCODER_768:MAX_ENCODER_770
+
+
 #define smi_DPMS_CLEARED (-1)
+
+
 
 extern int smi_bpp;
 extern int force_connect;
@@ -140,6 +156,9 @@ extern int pwm_ctrl;
 
 
 
+struct smi_750_register;
+struct smi_768_register;
+struct smi_770_register;
 struct smi_fbdev;
 
 struct smi_crtc {
@@ -156,22 +175,9 @@ struct smi_crtc {
 #define to_smi_framebuffer(x) container_of(x, struct smi_framebuffer, base)
 
 
-#define MAX_CRTC	2	
-#define MAX_ENCODER 3
 
 
-#define smi_LUT_SIZE 256
-#define PALETTE_INDEX 0x8
-#define PALETTE_DATA 0x9
 
-
-#define USE_DVI 1
-#define USE_VGA (1<<1)
-#define USE_HDMI (1<<2)
-#define USE_DVI_VGA (USE_DVI|USE_VGA)
-#define USE_DVI_HDMI (USE_DVI | USE_HDMI)
-#define USE_VGA_HDMI (USE_VGA | USE_HDMI)
-#define USE_ALL (USE_DVI |USE_VGA | USE_HDMI)
 
 
 struct smi_mode_info {
@@ -186,20 +192,9 @@ struct smi_encoder {
 	int				last_dpms;
 };
 
-struct smi_connector {
-	struct drm_connector		base;
-	struct i2c_adapter adapter;
-	struct i2c_algo_bit_data bit_data;
-	unsigned char i2c_scl;
-	unsigned char i2c_sda;
-	unsigned char i2cNumber;
-	bool i2c_hw_enabled;
-};
 
-static inline struct smi_connector *to_smi_connector(struct drm_connector *connector)
-{
-	return container_of(connector, struct smi_connector, base);
-}
+
+
 
 struct smi_framebuffer {
 	struct drm_framebuffer		base;
@@ -207,8 +202,7 @@ struct smi_framebuffer {
 	void* vmapping;
 };
 
-struct smi_750_register;
-struct smi_768_register;
+
 
 struct smi_device {
 	struct drm_device		*dev;
@@ -222,12 +216,13 @@ struct smi_device {
 	resource_size_t			vram_base;
 	void __iomem			*rmmio;
 	void __iomem 			*vram;
-	
+
 	int specId;
 	
-	int m_connector;  //bit 0: DVI, bit 1: VGA, bit 2: HDMI.
+	int m_connector;  
+	//bit 0: DVI, bit 1: VGA, bit 2: HDMI, bit 3: HDMI1, bit 4: HDMI2, bit 5: DP, bit 6: DP1
 
-	struct drm_encoder *smi_enc_tab[MAX_ENCODER];
+	struct drm_encoder *smi_enc_tab[MAX_ENCODER_770];
 
 	struct smi_mode_info		mode_info;
 
@@ -242,12 +237,54 @@ struct smi_device {
 		struct ttm_bo_device bdev;
 	} ttm;
 	bool mm_inited;
+	void *vram_save;
+	union {
 	struct smi_750_register *regsave;
 	struct smi_768_register *regsave_768;
+		struct smi_770_register *regsave_770;
+	};
+#ifdef USE_HDMICHIP
+	struct edid si9022_edid[2];
+#endif
     void *dvi_edid;
 	void *vga_edid;
 	void *hdmi_edid;
-	bool is_hdmi;
+
+#if USE_I2C_ADAPTER
+	struct edid *hdmi0_edid;
+	struct edid *hdmi1_edid;
+	struct edid *hdmi2_edid;
+	struct edid *dp0_edid;
+	struct edid *dp1_edid;
+#else  //increase edid buffer size
+	struct edid hdmi0_edid[4];
+	struct edid hdmi1_edid[4];
+	struct edid hdmi2_edid[4];
+	struct edid dp0_edid[4];
+	struct edid dp1_edid[4];
+#endif
+
+	struct drm_display_mode *fixed_mode;
+	bool is_768hdmi;
+	bool is_hdmi[SMIFB_CONN_LIMIT];
+	bool is_boot_gpu;
+
+};
+
+struct smi_connector {
+	struct drm_connector		base;
+	struct i2c_adapter adapter;
+	struct i2c_adapter dp_adapter;
+	struct i2c_algo_bit_data bit_data;
+	unsigned char i2c_scl;
+	unsigned char i2c_sda;
+	unsigned char i2cNumber;
+	bool i2c_hw_enabled;
+	struct mutex i2c_lock;
+	bool i2c_is_segment;
+	bool i2c_is_regaddr;
+	int i2c_slave_reg;
+	//struct drm_dp_aux dp_aux;
 };
 
 
@@ -260,6 +297,10 @@ struct smi_fbdev {
 	spinlock_t dirty_lock;
 };
 
+static inline struct smi_connector *to_smi_connector(struct drm_connector *connector)
+{
+	return container_of(connector, struct smi_connector, base);
+}
 struct smi_bo {
 	struct ttm_buffer_object bo;
 	struct ttm_placement placement;
@@ -430,21 +471,47 @@ int smi_crtc_page_flip(struct drm_crtc *crtc,struct drm_framebuffer *fb,
     struct drm_pending_vblank_event *event, uint32_t page_flip_flags, struct drm_modeset_acquire_ctx *ctx);
 #endif
 
-
+int smi_calc_hdmi_ctrl(int m_connector);
+int smi_encoder_crtc_index_changed(int encoder_index);
 
 int smi_audio_init(struct drm_device *dev);
 void smi_audio_remove(struct drm_device *dev);
-void smi_audio_suspend(void);
-void smi_audio_resume(void);
+void smi_audio_suspend(struct smi_device *sdev);
+void smi_audio_resume(struct smi_device *sdev);
 
 
 
 int smi_ehci_init(struct drm_device *dev);
 void smi_ehci_remove(struct drm_device *dev);
 void smi_ehci_shutdown(struct drm_device *dev);
+irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id);
+irqreturn_t smi_hdmi0_hardirq(int irq, void *dev_id);
+irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id);
+irqreturn_t smi_hdmi1_hardirq(int irq, void *dev_id);
+irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id);
+irqreturn_t smi_hdmi2_hardirq(int irq, void *dev_id);
 
+#define smi_LUT_SIZE 256
+#define CURSOR_WIDTH 64
+#define CURSOR_HEIGHT 64
 
+#define PALETTE_INDEX 0x8
+#define PALETTE_DATA 0x9
 
+#define USE_DVI 1
+#define USE_VGA (1 << 1)
+#define USE_HDMI (1 << 2)
+#define USE_DVI_VGA (USE_DVI | USE_VGA)
+#define USE_DVI_HDMI (USE_DVI | USE_HDMI)
+#define USE_VGA_HDMI (USE_VGA | USE_HDMI)
+#define USE_ALL (USE_DVI | USE_VGA | USE_HDMI)
+
+/*  for 770  */
+#define USE_HDMI0 	(1 << 3)
+#define USE_HDMI1 	(1 << 4)
+#define USE_HDMI2 	(1 << 5)
+#define USE_DP0 	(1 << 6)
+#define USE_DP1 	(1 << 7)
 
 
 /* please use revision id to distinguish sm750le and sm750*/
@@ -452,11 +519,14 @@ void smi_ehci_shutdown(struct drm_device *dev);
 #define SPC_SM712 	1
 #define SPC_SM502   2
 #define SPC_SM768   3
+#define SPC_SM770   4
 //#define SPC_SM750LE 8
 
 #define PCI_VENDOR_ID_SMI 	0x126f
 #define PCI_DEVID_LYNX_EXP	0x0750
 #define PCI_DEVID_SM768		0x0768
+#define PCI_DEVID_SM770		0x0770
+
 
 #define BPP32_RED    0x00ff0000
 #define BPP32_GREEN  0x0000ff00

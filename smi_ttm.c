@@ -327,9 +327,12 @@ int smi_mm_init(struct smi_device *smi)
 	if(smi->specId == SPC_SM750)  //SM750 has only 16MB vram.we have to report 64MB vram for the prime function.
  		ret = ttm_bo_init_mm(bdev, TTM_PL_VRAM,
 			     0x4000000 >> PAGE_SHIFT);
-	else
+	else if(smi->specId == SPC_SM768)
 		ret = ttm_bo_init_mm(bdev, TTM_PL_VRAM,
 			     smi->vram_size >> PAGE_SHIFT);
+	else if(smi->specId == SPC_SM770)
+		ret = ttm_bo_init_mm(bdev, TTM_PL_VRAM,
+				smi->vram_size >> PAGE_SHIFT);	
 #else
 	ret = ttm_bo_init_mm(bdev, TTM_PL_VRAM,
 			     smi->vram_size >> PAGE_SHIFT);

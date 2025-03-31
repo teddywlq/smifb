@@ -15,7 +15,7 @@
 
 #include "hw750.h"
 #include "hw768.h"
-
+#include "hw770.h"
 #define MB(x) (x<<20) /* Macro for Mega Bytes */
 
 #ifdef PRIME
@@ -255,122 +255,7 @@ static const struct drm_mode_config_funcs smi_mode_funcs = {
 	.output_poll_changed = smi_output_poll_changed,
 };
 
-/* Unmap the framebuffer from the core and release the memory */
-static void smi_vram_fini(struct smi_device *cdev)
-{
-	iounmap(cdev->rmmio);
-	cdev->rmmio = NULL;
-	iounmap(cdev->vram);
-	cdev->vram = NULL;
 
-	if (cdev->vram_base)
-		release_mem_region(cdev->vram_base, cdev->vram_size);
-}
-
-/* Map the framebuffer from the card and configure the core */
-static int smi_vram_init(struct smi_device *cdev)
-{
-	/* BAR 0 is VRAM */
-	cdev->vram_base = pci_resource_start(cdev->dev->pdev, 0);
-
-	/* VRAM Size */
-	if(cdev->specId == SPC_SM750)
-		cdev->vram_size = ddk750_getFrameBufSize();
-	else
-		cdev->vram_size = ddk768_getFrameBufSize();
-
-#if 0
-	if (!request_mem_region(cdev->vram_base, cdev->vram_size,
-				"smidrmfb_vram")) {
-		DRM_ERROR("can't reserve VRAM\n");
-		return -ENXIO;
-	}
-#endif
-
-#ifdef NO_WC
-	cdev->vram = ioremap(cdev->vram_base, cdev->vram_size);
-#else
-	cdev->vram = ioremap_wc(cdev->vram_base, cdev->vram_size);
-#endif
-
-	if (cdev->vram == NULL)
-		return -ENOMEM;
-
-	return 0;
-}
-
-/*
- * SMI Graphics has two sets of memory. One is video RAM and can
- * simply be used as a linear framebuffer - the other provides mmio access
- * to the display registers. The latter can also be accessed via IO port
- * access, but we map the range and use mmio to program them instead
- */
-
-int smi_device_init(struct smi_device *cdev,
-		       struct drm_device *ddev,
-		       struct pci_dev *pdev, uint32_t flags)
-{
-	int ret,dma_bits;
-
-	cdev->dev = ddev;
-	cdev->flags = flags;
-
-	/* Hardcode the number of CRTCs to 2 */
-	cdev->num_crtc = 2;
-
-	dma_bits = 40;
-	cdev->need_dma32 = false;
-	ret = pci_set_dma_mask(cdev->dev->pdev, DMA_BIT_MASK(dma_bits));
-	if (ret) {
-		cdev->need_dma32 = true;
-		dma_bits = 32;
-		printk(KERN_WARNING "smifb: No suitable DMA available.\n");
-	}
-
-#if 0
-	ret = pci_set_consistent_dma_mask(cdev->dev->pdev, DMA_BIT_MASK(dma_bits));
-	if (ret) {
-		pci_set_consistent_dma_mask(cdev->dev->pdev, DMA_BIT_MASK(32));
-		printk(KERN_WARNING "smifb: No coherent DMA available.\n");
-	}
-#endif
-
-	/* BAR 0 is the framebuffer, BAR 1 contains registers */
-	cdev->rmmio_base = pci_resource_start(cdev->dev->pdev, 1);
-	cdev->rmmio_size = pci_resource_len(cdev->dev->pdev, 1);
-
-	if (!request_mem_region(cdev->rmmio_base, cdev->rmmio_size,
-				"smidrmfb_mmio")) {
-		DRM_ERROR("can't reserve mmio registers\n");
-		return -ENOMEM;
-	}
-
-	cdev->rmmio = ioremap(cdev->rmmio_base, cdev->rmmio_size);
-
-	if (cdev->rmmio == NULL)
-		return -ENOMEM;
-	
-	if(cdev->specId == SPC_SM750)
-		ddk750_set_mmio(cdev->rmmio,pdev->device,pdev->revision);
-
-	else
-		ddk768_set_mmio(cdev->rmmio,pdev->device,pdev->revision);
-
-
-	ret = smi_vram_init(cdev);
-	if (ret) {
-		release_mem_region(cdev->rmmio_base, cdev->rmmio_size);
-		return ret;
-	}
-
-	return 0;
-}
-
-void smi_device_fini(struct smi_device *cdev)
-{
-	release_mem_region(cdev->rmmio_base, cdev->rmmio_size);
-	smi_vram_fini(cdev);
-}
 
 /*
  * Functions here will be called by the core once it's bound the driver to
@@ -382,7 +267,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	struct smi_device *cdev;
 	struct pci_dev *pdev; 
 	int r;
-	
+
 	pdev = to_pci_dev(dev->dev);
 	cdev = kzalloc(sizeof(struct smi_device), GFP_KERNEL);
 	if (cdev == NULL)
@@ -396,16 +281,15 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	case PCI_DEVID_SM768:
 		cdev->specId = SPC_SM768;
 		break;
+	case PCI_DEVID_SM770:
+		cdev->specId = SPC_SM770;
+		break;
 	default:
 		return -ENODEV;
 	}
-
-	dbg_msg("pdev->device:0x%x\n", pdev->device);
-	dbg_msg("specId:0x%x\n", cdev->specId);
-
-
+	
 	r = pci_enable_device(pdev);
-
+	
 	r = smi_device_init(cdev, dev, pdev, flags);
 	if (r) {
 		dev_err(&pdev->dev, "Fatal error during GPU init: %d\n", r);
@@ -414,6 +298,9 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 
 	if(cdev->specId == SPC_SM750)
 	{
+	    if (pdev->resource[PCI_ROM_RESOURCE].flags & IORESOURCE_ROM_SHADOW) {
+			cdev->is_boot_gpu = true;
+		}
 		ddk750_initChip();
 		ddk750_deInit();
 		
@@ -430,7 +317,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 #endif
 
 	}
-	else
+	else if(cdev->specId == SPC_SM768)
 	{
 		ddk768_initChip();
 		ddk768_deInit();
@@ -440,8 +327,22 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		EP_HDMI_Set_Video_Timing(1,1);
 #endif
 		
-		if(audio_en)
+	}
+	else if(cdev->specId == SPC_SM770){
+		ddk770_initChip();
+		ddk770_iis_Init();
+		
+		hw770_init_hdmi();
+
+		hw770_init_dp();
+
+	}
+#ifndef NO_AUDIO
+	if((cdev->specId == SPC_SM768 || cdev->specId == SPC_SM770) && audio_en)
 			smi_audio_init(dev);
+#endif
+	if(cdev->specId == SPC_SM768 )
+	{
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
 		if(usb_host)
@@ -450,9 +351,10 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	}
 
 
+
 	r = smi_mm_init(cdev);
 	if (r){
-		dev_err(&pdev->dev, "fatal err on mm init\n");
+		dev_err(&dev->pdev->dev, "fatal err on mm init\n");
 		goto out;
 	}
 
@@ -461,7 +363,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
-	r = drm_irq_install(dev, pdev->irq);
+	r = drm_irq_install(dev, dev->pdev->irq);
 #else
 	r = drm_irq_install(dev);
 #endif
@@ -472,10 +374,30 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	dev->mode_config.funcs = (void *)&smi_mode_funcs;
 	r = smi_modeset_init(cdev);
 	if (r){
-		dev_err(&pdev->dev, "Fatal error during modeset init: %d\n", r);
+		dev_err(&dev->pdev->dev, "Fatal error during modeset init: %d\n", r);
 		goto out;
 	}
+if (cdev->specId == SPC_SM770)
+	{
 
+		r = devm_request_threaded_irq(cdev->dev->dev, pdev->irq, smi_hdmi0_hardirq,
+									  smi_hdmi0_pnp_handler, IRQF_SHARED,
+									  dev_name(cdev->dev->dev), cdev->dev);
+		if (r)
+			printk("install irq failed , ret = %d\n", r);
+
+		r = devm_request_threaded_irq(cdev->dev->dev, pdev->irq, smi_hdmi1_hardirq,
+									  smi_hdmi1_pnp_handler, IRQF_SHARED,
+									  dev_name(cdev->dev->dev), cdev->dev);
+		if (r)
+			printk("install irq failed , ret = %d\n", r);
+
+		r = devm_request_threaded_irq(cdev->dev->dev, pdev->irq, smi_hdmi2_hardirq,
+									  smi_hdmi2_pnp_handler, IRQF_SHARED,
+									  dev_name(cdev->dev->dev), cdev->dev);
+		if (r)
+			printk("install irq failed , ret = %d\n", r);
+	}
 	cdev->regsave = vmalloc(1024);
 	if(!cdev->regsave)
 	{
@@ -503,7 +425,14 @@ int smi_driver_unload(struct drm_device *dev)
 
 	if (dev->irq_enabled)
 		drm_irq_uninstall(dev);
-
+	/* Disable *all* interrupts */
+	if (cdev->specId == SPC_SM750) {
+		ddk750_disable_IntMask();
+	} else if (cdev->specId == SPC_SM768) {
+		ddk768_disable_IntMask();
+	} else if(cdev->specId == SPC_SM770) {
+		ddk770_disable_IntMask();
+	}
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && \
 	(LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)))
@@ -522,10 +451,15 @@ int smi_driver_unload(struct drm_device *dev)
 	smi_device_fini(cdev);
 
 
-	if(cdev->specId == SPC_SM768)
+#ifndef NO_AUDIO
+	if(cdev->specId == SPC_SM768 || cdev->specId == SPC_SM770)
 	{
 		if(audio_en)
 			smi_audio_remove(dev);
+    }
+#endif
+	if(cdev->specId == SPC_SM768)
+	{
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
 		if(usb_host){
 			smi_ehci_remove(dev);
@@ -541,6 +475,56 @@ int smi_driver_unload(struct drm_device *dev)
 	return 0;
 #endif
 
+}
+
+/* Unmap the framebuffer from the core and release the memory */
+static void smi_vram_fini(struct smi_device *cdev)
+{
+	iounmap(cdev->rmmio);
+	cdev->rmmio = NULL;
+	iounmap(cdev->vram);
+	cdev->vram = NULL;
+
+	if (cdev->vram_base)
+		release_mem_region(cdev->vram_base, cdev->vram_size);
+}
+
+
+/* Map the framebuffer from the card and configure the core */
+static int smi_vram_init(struct smi_device *cdev)
+{
+
+	struct drm_device *dev = cdev->dev;
+	struct pci_dev *pdev = to_pci_dev(dev->dev);
+	
+	cdev->vram_base = pci_resource_start(pdev, 0);
+
+	/* VRAM Size */
+	if (cdev->specId == SPC_SM750)
+		cdev->vram_size = ddk750_getFrameBufSize();
+	else if(cdev->specId == SPC_SM768)
+		cdev->vram_size = ddk768_getFrameBufSize();
+	else if(cdev->specId == SPC_SM770)
+		cdev->vram_size = ddk770_getFrameBufSize();  
+		
+#if 0
+	if (!request_mem_region(cdev->vram_base, cdev->vram_size,
+				"smidrmfb_vram")) {
+		DRM_ERROR("can't reserve VRAM\n");
+		return -ENXIO;
+	}
+#endif
+
+#ifdef NO_WC
+	cdev->vram = ioremap(cdev->vram_base, cdev->vram_size);
+#else
+	cdev->vram = ioremap_wc(cdev->vram_base, cdev->vram_size);
+#endif
+
+	if (cdev->vram == NULL)
+		return -ENOMEM;
+
+	return 0;
 }
 
 int smi_gem_create(struct drm_device *dev,
@@ -578,8 +562,11 @@ int smi_dumb_create(struct drm_file *file,
 	int ret;
 	struct drm_gem_object *gobj;
 	u32 handle;
-
-	args->pitch = ((args->width) * (args->bpp) / 8 + 15) & ~15; 
+	struct smi_device *sdev = dev->dev_private;
+	if (sdev->specId == SPC_SM770) 
+		args->pitch = alignLineOffset((args->width) * (args->bpp) / 8 );
+	else
+		args->pitch = ((args->width) * (args->bpp) / 8 + 15) & ~15; 
 	
 	args->size = args->pitch * args->height;
 
@@ -606,6 +593,9 @@ int smi_gem_init_object(struct drm_gem_object *obj)
 	BUG();
 	return 0;
 }
+
+
+
 
 void smi_bo_unref(struct smi_bo **bo)
 {
@@ -637,6 +627,81 @@ void smi_gem_free_object(struct drm_gem_object *obj)
 			drm_prime_gem_destroy(&smi_bo->gem, smi_bo->bo.sg);
 		smi_bo_unref(&smi_bo);
 	}
+}
+
+
+
+/*
+ * SMI Graphics has two sets of memory. One is video RAM and can
+ * simply be used as a linear framebuffer - the other provides mmio access
+ * to the display registers. The latter can also be accessed via IO port
+ * access, but we map the range and use mmio to program them instead
+ */
+
+int smi_device_init(struct smi_device *cdev,
+		       struct drm_device *ddev,
+		       struct pci_dev *pdev, uint32_t flags)
+{
+	int ret,dma_bits;
+
+	cdev->dev = ddev;
+	cdev->flags = flags;
+
+	cdev->num_crtc = MAX_CRTC(cdev->specId);
+
+	dma_bits = 40;
+	cdev->need_dma32 = false;
+	ret = pci_set_dma_mask(cdev->dev->pdev, DMA_BIT_MASK(dma_bits));
+	if (ret) {
+		cdev->need_dma32 = true;
+		dma_bits = 32;
+		printk(KERN_WARNING "smifb: No suitable DMA available.\n");
+	}
+
+#if 0
+	ret = pci_set_consistent_dma_mask(cdev->dev->pdev, DMA_BIT_MASK(dma_bits));
+	if (ret) {
+		pci_set_consistent_dma_mask(cdev->dev->pdev, DMA_BIT_MASK(32));
+		printk(KERN_WARNING "smifb: No coherent DMA available.\n");
+	}
+#endif
+
+	/* BAR 0 is the framebuffer, BAR 1 contains registers */
+	cdev->rmmio_base = pci_resource_start(cdev->dev->pdev, 1);
+	cdev->rmmio_size = pci_resource_len(cdev->dev->pdev, 1);
+
+	if (!request_mem_region(cdev->rmmio_base, cdev->rmmio_size,
+				"smidrmfb_mmio")) {
+		DRM_ERROR("can't reserve mmio registers\n");
+		return -ENOMEM;
+	}
+
+	cdev->rmmio = ioremap(cdev->rmmio_base, cdev->rmmio_size);
+
+	if (cdev->rmmio == NULL)
+		return -ENOMEM;
+
+	if (cdev->specId == SPC_SM750)
+		ddk750_set_mmio(cdev->rmmio, pdev->device, pdev->revision);
+	else if(cdev->specId == SPC_SM768)
+		ddk768_set_mmio(cdev->rmmio, pdev->device, pdev->revision);
+	else if(cdev->specId == SPC_SM770)
+		ddk770_set_mmio(cdev->rmmio, pdev->device, pdev->revision);
+
+
+	ret = smi_vram_init(cdev);
+	if (ret) {
+		release_mem_region(cdev->rmmio_base, cdev->rmmio_size);
+		return ret;
+	}
+	cdev->m_connector = 0;
+	return 0;
+}
+
+void smi_device_fini(struct smi_device *cdev)
+{
+	release_mem_region(cdev->rmmio_base, cdev->rmmio_size);
+	smi_vram_fini(cdev);
 }
 
 

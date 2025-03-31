@@ -197,14 +197,14 @@ void hw750_set_base(int display,int pitch,int base_addr)
 		pokeRegisterDWord(PRIMARY_FB_WIDTH,
 		          FIELD_VALUE(0, PRIMARY_FB_WIDTH, WIDTH, pitch)
 		        | FIELD_VALUE(0, PRIMARY_FB_WIDTH, OFFSET, pitch));
-		setDisplayBaseAddress(PRIMARY_CTRL, base_addr);
+		setDisplayBaseAddress(CHANNEL0_CTRL, base_addr);
 	}
 	else
 	{
 		pokeRegisterDWord(SECONDARY_FB_WIDTH,
 		          FIELD_VALUE(0, SECONDARY_FB_WIDTH, WIDTH, pitch)
 		        | FIELD_VALUE(0, SECONDARY_FB_WIDTH, OFFSET, pitch));
-		setDisplayBaseAddress(SECONDARY_CTRL, base_addr);
+		setDisplayBaseAddress(CHANNEL1_CTRL, base_addr);
 	}
 }
 
@@ -212,26 +212,26 @@ void hw750_set_dpms(int display,int state)
 {
 	if(display == 0)
 	{
-		setDisplayControl(PRIMARY_CTRL, state);           /* Turn on Primary Control */
-		setPath(PANEL_PATH, PRIMARY_CTRL, state); 
+		setDisplayControl(CHANNEL0_CTRL, state);           /* Turn on Primary Control */
+		setPath(SMI0_PATH, CHANNEL0_CTRL, state); 
 	}
 	else
 	{
-		setDisplayControl(SECONDARY_CTRL, state);         /* Turn on Secondary control */
-		setPath(CRT_PATH, SECONDARY_CTRL, state);
+		setDisplayControl(CHANNEL1_CTRL, state);         /* Turn on Secondary control */
+		setPath(SMI1_PATH, CHANNEL1_CTRL, state);
 	}
 }
 int hw750_en_dis_interrupt(int status, int pipe)
 {
 	if(status == 0)
 	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == SECONDARY_CTRL) ? 
+		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL1_CTRL) ? 
 		FIELD_SET(0, INT_MASK, SECONDARY_VSYNC, DISABLE):
 		FIELD_SET(0, INT_MASK, PRIMARY_VSYNC, DISABLE));
 	}
 	else
 	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == SECONDARY_CTRL) ? 
+		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL1_CTRL) ? 
 		FIELD_SET(0, INT_MASK, SECONDARY_VSYNC, ENABLE):
 		FIELD_SET(0, INT_MASK, PRIMARY_VSYNC, ENABLE));
 	}
@@ -248,7 +248,7 @@ int hw750_check_vsync_interrupt(int path)
 	value1 = peekRegisterDWord(RAW_INT);
 	value2 = peekRegisterDWord(INT_MASK);
 	
-	if(path == PRIMARY_CTRL)
+	if(path == CHANNEL0_CTRL)
 	{
 	    if ((FIELD_GET(value1, RAW_INT, PRIMARY_VSYNC) == RAW_INT_PRIMARY_VSYNC_ACTIVE)
 			&&(FIELD_GET(value2, INT_MASK, PRIMARY_VSYNC) == INT_MASK_PRIMARY_VSYNC_ENABLE))
@@ -274,7 +274,7 @@ void hw750_clear_vsync_interrupt(int path)
 		
 	value = peekRegisterDWord(RAW_INT);
 	
-	if(path == PRIMARY_CTRL)
+	if(path == CHANNEL0_CTRL)
 	{
 	    
 		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, PRIMARY_VSYNC, CLEAR));
@@ -301,7 +301,7 @@ void hw750_setgamma(disp_control_t dispCtrl, unsigned long enable)
 
 
 
-	if(dispCtrl == PRIMARY_CTRL)
+	if(dispCtrl == CHANNEL0_CTRL)
 		regCtrl = PRIMARY_DISPLAY_CTRL;
 	else
 		regCtrl = SECONDARY_DISPLAY_CTRL;
@@ -322,7 +322,7 @@ void hw750_load_lut(disp_control_t dispCtrl, int size, u8 lut_r[], u8 lut_g[], u
 	unsigned int i, v;
 	unsigned long regCtrl;
 
-	if(dispCtrl == PRIMARY_CTRL)
+	if(dispCtrl == CHANNEL0_CTRL)
 		regCtrl = PRIMARY_PALETTE_RAM;
 	else
 		regCtrl = SECONDARY_PALETTE_RAM;

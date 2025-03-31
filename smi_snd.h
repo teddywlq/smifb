@@ -24,6 +24,8 @@ struct sm768chip {
 	struct snd_card *card;
 	int irq;
 
+    int chipId;
+
 	struct snd_pcm_substream *play_substream;
 	struct snd_pcm_substream *capture_substream;
 	unsigned long ppointer;

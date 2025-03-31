@@ -11,15 +11,15 @@
 *******************************************************************/
 #ifndef _POWER_H_
 #define _POWER_H_
-
-typedef enum _DPMS_t
-{
-    DPMS_ON,
-    DPMS_STANDBY,
-    DPMS_SUSPEND,
-    DPMS_OFF
-}
-DPMS_t;
+#include "../hw_com.h"
+// typedef enum _DPMS_t
+// {
+//     DPMS_ON,
+//     DPMS_STANDBY,
+//     DPMS_SUSPEND,
+//     DPMS_OFF
+// }
+// DPMS_t;
 
 /*
  * This function sets the DPMS state 

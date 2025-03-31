@@ -17,7 +17,7 @@
  * This function initializes the cursor attributes.
  */
 void ddk750_initCursor(
-    disp_control_t dispControl,     /* Display control (PRIMARY_CTRL or SECONDARY_CTRL) */
+    disp_control_t dispControl,     /* Display control (CHANNEL0_CTRL or CHANNEL1_CTRL) */
     unsigned long base,             /* Base Address */ 
     unsigned long color1,           /* Cursor color 1 in RGB 5:6:5 format */
     unsigned long color2,           /* Cursor color 2 in RGB 5:6:5 format */
@@ -28,7 +28,7 @@ void ddk750_initCursor(
  * This function sets the cursor position.
  */
 void ddk750_setCursorPosition(
-    disp_control_t dispControl,     /* Display control (PRIMARY_CTRL or SECONDARY_CTRL) */
+    disp_control_t dispControl,     /* Display control (CHANNEL0_CTRL or CHANNEL1_CTRL) */
     unsigned long dx,               /* X Coordinate of the cursor */
     unsigned long dy,               /* Y Coordinate of the cursor */
     unsigned char topOutside,       /* Top Boundary Select: either partially outside (= 1) 
@@ -41,7 +41,7 @@ void ddk750_setCursorPosition(
  * This function enables/disables the cursor.
  */
 void ddk750_enableCursor(
-    disp_control_t dispControl,     /* Display control (PRIMARY_CTRL or SECONDARY_CTRL) */
+    disp_control_t dispControl,     /* Display control (CHANNEL0_CTRL or CHANNEL1_CTRL) */
     unsigned long enable
 );
 

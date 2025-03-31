@@ -17,10 +17,12 @@
 
 #include "hw750.h"
 #include "hw768.h"
+#include "hw770.h"
+
 
 int smi_modeset = -1;
 int smi_indent = 0;
-int smi_bpp = 24;
+int smi_bpp = 32;
 int force_connect = 0;
 int smi_pat = 0xff;
 int lvds_channel = 0;
@@ -41,14 +43,15 @@ int clk_phase = -1;
 extern void hw750_suspend(struct smi_750_register * pSave);
 extern void hw750_resume(struct smi_750_register * pSave);
 
+
 module_param(smi_pat,int, S_IWUSR | S_IRUSR);
 
 
 MODULE_PARM_DESC(modeset, "Disable/Enable modesetting");
 module_param_named(modeset, smi_modeset, int, 0400);
-MODULE_PARM_DESC(bpp, "Max bits-per-pixel (default:16)");
+MODULE_PARM_DESC(bpp, "Max bits-per-pixel (default:32)");
 module_param_named(bpp, smi_bpp, int, 0400);
-MODULE_PARM_DESC(nopnp, "Force conncet to the monitor without monitor EDID (default:0) bit0:DVI,bit1:VGA,bit2:HDMI ");
+MODULE_PARM_DESC(nopnp, "Force conncet to the monitor without monitor EDID (default:0) bit0:DVI,bit1:VGA,bit2:HDMI SM770: bit3-5 HDMI0-2, bit6-7 DP0-1");
 module_param_named(nopnp, force_connect, int, 0400);
 MODULE_PARM_DESC(lvds, "LVDS Channel, 0=disable 1=single channel, 2=dual channel (default:0)");
 module_param_named(lvds, lvds_channel, int, 0400);
@@ -58,9 +61,9 @@ MODULE_PARM_DESC(height, "Fixed mode height for LVDS or nopnp (default:0)");
 module_param_named(height, fixed_height, int, 0400);
 MODULE_PARM_DESC(usbhost, "SM768 USB EHCI Host Disable/Enable(default:0)");
 module_param_named(usbhost, usb_host, int, 0400);
-MODULE_PARM_DESC(audio, "SM768 Audio, 0=diable 1=use UDA1345 Codec, 2=use WM8978 Codec(default:0)");
+MODULE_PARM_DESC(audio, "SM768/SM770 Audio, 0=diable 1=use UDA1345 Codec, 2=use WM8978 Codec(default:0), SM770 only support HDMI/DP Audio");
 module_param_named(audio, audio_en, int, 0400);
-MODULE_PARM_DESC(hwi2c, "HW I2C for EDID reading, 0=SW I2C 1=HW I2C(default:0)");
+MODULE_PARM_DESC(hwi2c, "HW I2C for EDID reading for SM750/SM768, 0=SW I2C 1=HW I2C(default:0)");
 module_param_named(hwi2c, hwi2c_en, int, 0400);
 MODULE_PARM_DESC(swcur, "Use Software cursor, 0=HW Cursor 1=SW Cursor(default:0)");
 module_param_named(swcur, swcur_en, int, 0400);
@@ -85,14 +88,18 @@ module_param_named(clkphase, clk_phase, int, 0400);
 #define PCI_VENDOR_ID_SMI 	0x126f
 #define PCI_DEVID_SM750	0x0750
 #define PCI_DEVID_SM768	0x0768
+#define PCI_DEVID_SM770 0x0770
 
 static struct drm_driver driver;
 
 /* only bind to the smi chip in qemu */
 static const struct pci_device_id pciidlist[] = {
-	{PCI_VENDOR_ID_SMI,PCI_DEVID_SM750,PCI_ANY_ID,PCI_ANY_ID,0,0,0},
-	{PCI_VENDOR_ID_SMI,PCI_DEVID_SM768,PCI_ANY_ID,PCI_ANY_ID,0,0,0},
-	{0,}
+	{ PCI_VENDOR_ID_SMI, PCI_DEVID_SM750, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ PCI_VENDOR_ID_SMI, PCI_DEVID_SM768, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ PCI_VENDOR_ID_SMI, PCI_DEVID_SM770, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{
+		0,
+	}
 };
 
 
@@ -142,7 +149,21 @@ static int smi_pci_probe(struct pci_dev *pdev,
 	ret = smi_kick_out_firmware_fb(pdev);
 	if (ret)
 		return ret;
+
 	claim();
+	if (ent->vendor != PCI_VENDOR_ID_SMI &&
+	    !(ent->device == PCI_DEVID_LYNX_EXP || ent->device == PCI_DEVID_SM768 || ent->device == PCI_DEVID_SM770)) {
+		return -ENODEV;
+	}
+
+	if (ent->vendor == PCI_VENDOR_ID_SMI && (ent->device == PCI_DEVID_SM768 || ent->device == PCI_DEVID_SM770)) {
+		
+		if (lvds_channel != 0) {
+			dbg_msg("LVDS channel set to %d\n", lvds_channel);
+		}
+	}
+
+	
 	return drm_get_pci_dev(pdev, ent, &driver);
 }
 
@@ -177,12 +198,20 @@ static int smi_drm_freeze(struct drm_device *dev)
 		console_unlock();
 	}
 
-	if(sdev->specId == SPC_SM750)
+	if (sdev->specId == SPC_SM750){
          hw750_suspend(sdev->regsave);
-    else if(sdev->specId == SPC_SM768){
+	}else if(sdev->specId == SPC_SM768){
+#ifndef NO_AUDIO
 		 if(audio_en)
-			 smi_audio_suspend();
+			 smi_audio_suspend(sdev);
+#endif
          hw768_suspend(sdev->regsave_768);
+    }else if(sdev->specId == SPC_SM770){
+#ifndef NO_AUDIO
+		if(audio_en)
+			 smi_audio_suspend(sdev);
+#endif
+		hw770_suspend(sdev->regsave_770);
     }
 	LEAVE(0);
 
@@ -210,12 +239,16 @@ static int smi_drm_thaw(struct drm_device *dev)
 	}
 
 	
-	if(sdev->specId == SPC_SM750)
+	if(sdev->specId == SPC_SM750){
+
 			hw750_resume(sdev->regsave);
-	else if(sdev->specId == SPC_SM768){
+	}else if(sdev->specId == SPC_SM768){
+
 			hw768_resume(sdev->regsave_768);
+#ifndef NO_AUDIO
 			if(audio_en)
-				smi_audio_resume();
+			smi_audio_resume(sdev);
+#endif
 		if(sdev->m_connector & USE_DVI){
 			if (lvds_channel == 1){
 				hw768_enable_lvds(1);
@@ -226,6 +259,13 @@ static int smi_drm_thaw(struct drm_device *dev)
 				EnableDoublePixel(0);
 			}
 		}
+	}else if(sdev->specId == SPC_SM770){
+				hw770_resume(sdev->regsave_770);
+#ifndef NO_AUDIO
+				if(audio_en)
+					smi_audio_resume(sdev);
+#endif
+			
 	}
 	LEAVE(0);
 }
@@ -313,12 +353,12 @@ static int smi_enable_vblank(struct drm_device *dev, unsigned int pipe)
 {
 	struct smi_device *sdev = dev->dev_private;
 	
-	if(sdev->specId == SPC_SM750)
-	{
+	if (sdev->specId == SPC_SM750) {
 		hw750_en_dis_interrupt(1, pipe);
-	}else if(sdev->specId == SPC_SM768)
-	{
+	} else if (sdev->specId == SPC_SM768) {
 		hw768_en_dis_interrupt(1, pipe);
+	}else if (sdev->specId == SPC_SM770) {
+		hw770_en_dis_interrupt(1, pipe);
 	}
 	return 0;
 }
@@ -328,12 +368,12 @@ static void smi_disable_vblank(struct drm_device *dev, unsigned int pipe)
 {
 	struct smi_device *sdev = dev->dev_private;
 	
-	if(sdev->specId == SPC_SM750)
-	{
+	if (sdev->specId == SPC_SM750) {
 		hw750_en_dis_interrupt(0, pipe);
-	}else if(sdev->specId == SPC_SM768)
-	{
+	} else if (sdev->specId == SPC_SM768) {
 		hw768_en_dis_interrupt(0, pipe);
+	} else if (sdev->specId == SPC_SM770) {
+		hw770_en_dis_interrupt(0, pipe);
 	}
 }
 
@@ -357,12 +397,12 @@ static void smi_irq_uninstall(struct drm_device *dev)
 	struct smi_device *sdev = dev->dev_private;
 
 	/* Disable *all* interrupts */
-	if(sdev->specId == SPC_SM750)
-	{
+	if (sdev->specId == SPC_SM750) {
 		ddk750_disable_IntMask();
-	}else if(sdev->specId == SPC_SM768)
-	{
+	} else if (sdev->specId == SPC_SM768) {
 		ddk768_disable_IntMask();
+	} else if (sdev->specId == SPC_SM770) {
+		ddk770_disable_IntMask();
 	}
 
 }
@@ -370,16 +410,13 @@ static void smi_irq_uninstall(struct drm_device *dev)
 
 irqreturn_t smi_drm_interrupt(int irq, void *arg)
 {
-	struct drm_device *dev = (struct drm_device *) arg;
+	struct drm_device *dev = (struct drm_device *)arg;
 	
 	int handled = 0;
-	
 	struct smi_device *sdev = dev->dev_private;
 	
-	if(sdev->specId == SPC_SM750)
-	{
-	    if (hw750_check_vsync_interrupt(0))
-	    {
+	if (sdev->specId == SPC_SM750) {
+		if (hw750_check_vsync_interrupt(0)) {
 	        /* Clear the panel VSync Interrupt */	
 			drm_handle_vblank(dev, 0);		
 			handled = 1;
@@ -390,10 +427,8 @@ irqreturn_t smi_drm_interrupt(int irq, void *arg)
 			handled = 1;
 			hw750_clear_vsync_interrupt(1);
 		}
-	}else if(sdev->specId == SPC_SM768)
-	{
-		if (hw768_check_vsync_interrupt(0))
-		{
+	} else if (sdev->specId == SPC_SM768) {
+		if (hw768_check_vsync_interrupt(0)) {
 			/* Clear the panel VSync Interrupt */
 			drm_handle_vblank(dev, 0);
 			handled = 1;
@@ -404,12 +439,258 @@ irqreturn_t smi_drm_interrupt(int irq, void *arg)
 			handled = 1;
 			hw768_clear_vsync_interrupt(1);
 		}
+	} else if(sdev->specId == SPC_SM770){
+		if (hw770_check_vsync_interrupt(0)) {
+			/* Clear the panel VSync Interrupt */
+			drm_handle_vblank(dev, 0);
+			handled = 1;
+			hw770_clear_vsync_interrupt(0);
+		}
+		if (hw770_check_vsync_interrupt(1)) {
+			drm_handle_vblank(dev, 1);
+			handled = 1;
+			hw770_clear_vsync_interrupt(1);
+		}
 	}
 	
 	if (handled)
 		return IRQ_HANDLED;
 	return IRQ_NONE;
 }
+
+
+irqreturn_t smi_hdmi0_hardirq(int irq, void *dev_id)
+{
+	int ret;
+
+	ret = hw770_check_pnp_interrupt(0);
+	if (ret)
+	{
+		return IRQ_WAKE_THREAD;
+	}
+
+	return IRQ_NONE;
+}
+
+irqreturn_t smi_hdmi1_hardirq(int irq, void *dev_id)
+{
+	int ret;
+
+	ret = hw770_check_pnp_interrupt(1);
+	if (ret)
+	{
+		return IRQ_WAKE_THREAD;
+	}
+
+	return IRQ_NONE;
+}
+
+irqreturn_t smi_hdmi2_hardirq(int irq, void *dev_id)
+{
+	int ret;
+
+	ret = hw770_check_pnp_interrupt(2);
+	if (ret)
+	{
+		return IRQ_WAKE_THREAD;
+	}
+
+	return IRQ_NONE;
+}
+
+
+irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id)
+{
+	struct drm_display_mode *mode;
+	struct smi_device *sdev;
+	struct drm_device *dev;
+	logicalMode_t logicalMode;
+	unsigned long refresh_rate;
+	struct drm_crtc *crtc0;
+	struct smi_770_fb_info fb_info = {0};
+	int monitor_status = 0;
+	int ret = 0;
+
+	dev = dev_id;
+	sdev = dev->dev_private;
+	monitor_status = hw770_hdmi_detect(0);
+	if(!monitor_status)
+		return IRQ_HANDLED;
+
+	crtc0 = sdev->smi_enc_tab[2]->crtc;
+	if (crtc0) {
+		printk("CRTC0 found: %p\n", crtc0);
+	} else {
+		printk("CRTC0 not found\n");
+		goto error;
+	}
+
+	mode = &crtc0->mode;
+
+	if(!mode)
+		goto error;
+
+	refresh_rate = drm_mode_vrefresh(mode);
+	hw770_get_current_fb_info(0,&fb_info);
+
+	logicalMode.valid_edid = false;
+	if (sdev->hdmi0_edid && drm_edid_header_is_valid((u8 *)sdev->hdmi0_edid) == 8)
+		logicalMode.valid_edid = true;
+
+	logicalMode.x = mode->hdisplay;
+	logicalMode.y = mode->vdisplay;
+	logicalMode.bpp = smi_bpp;
+	logicalMode.hz = refresh_rate;
+	logicalMode.pitch = 0;
+	logicalMode.dispCtrl = 0;
+
+	if (monitor_status)
+	{
+		printk("HDMI0: Monitor status is $%d\n", monitor_status);
+		hw770_setMode(&logicalMode, *mode);
+		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[0], INDEX_HDMI0);
+		if (ret != 0)
+		{
+			printk("HDMI Mode not supported!\n");
+			goto error;
+		}
+		hw770_set_current_pitch(INDEX_HDMI0,&fb_info);
+	}
+	return IRQ_HANDLED;
+error:
+	return IRQ_HANDLED;
+
+}
+
+irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id)
+{
+	struct drm_display_mode *mode;
+	struct smi_device *sdev;
+	struct drm_device *dev;
+	logicalMode_t logicalMode;
+	unsigned long refresh_rate;
+	struct drm_crtc *crtc1;
+	struct smi_770_fb_info fb_info = {0};
+
+	int monitor_status = 0;
+	int ret = 0;
+
+	dev = dev_id;
+	sdev = dev->dev_private;
+	monitor_status = hw770_hdmi_detect(1);
+	if(!monitor_status)
+		return IRQ_HANDLED;
+
+	crtc1 = sdev->smi_enc_tab[3]->crtc;
+	if (crtc1) {
+		printk("CRTC1 found: %p\n", crtc1);
+	} else {
+		printk("CRTC1 not found\n");
+		goto error;
+	}
+
+	mode = &crtc1->mode;
+
+
+	if(!mode)
+		goto error;
+
+	refresh_rate = drm_mode_vrefresh(mode);
+	hw770_get_current_fb_info(1,&fb_info);
+	logicalMode.valid_edid = false;
+	if (sdev->hdmi1_edid && drm_edid_header_is_valid((u8 *)sdev->hdmi1_edid) == 8)
+		logicalMode.valid_edid = true;
+
+	logicalMode.x = mode->hdisplay;
+	logicalMode.y = mode->vdisplay;
+	logicalMode.bpp = smi_bpp;
+	logicalMode.hz = refresh_rate;
+	logicalMode.pitch = 0;
+	logicalMode.dispCtrl = 1;
+
+	if (monitor_status)
+	{
+		printk("HDMI1: Monitor status is $%d\n", monitor_status);
+		hw770_setMode(&logicalMode, *mode);
+		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[1], INDEX_HDMI1);
+		if (ret != 0)
+		{
+			printk("HDMI Mode not supported!\n");
+			goto error;
+		}
+		hw770_set_current_pitch(INDEX_HDMI1,&fb_info);
+	}
+	return IRQ_HANDLED;
+error:
+	return IRQ_HANDLED;
+
+}
+
+irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id)
+{
+	struct drm_display_mode *mode;
+	struct smi_device *sdev;
+	struct drm_device *dev;
+	logicalMode_t logicalMode;
+	unsigned long refresh_rate;
+	struct drm_crtc *crtc2;
+	struct smi_770_fb_info fb_info = {0};
+	int monitor_status = 0;
+	int ret = 0;
+
+	dev = dev_id;
+	sdev = dev->dev_private;
+	monitor_status = hw770_hdmi_detect(2);
+	if(!monitor_status)
+		return IRQ_HANDLED;
+
+	crtc2 = sdev->smi_enc_tab[4]->crtc;
+	if (crtc2) {
+		printk("CRTC2 found: %p\n", crtc2);
+	} else {
+		printk("CRTC2 not found\n");
+		goto error;
+	}
+
+	mode = &crtc2->mode;
+
+	if(!mode)
+		goto error;
+
+	refresh_rate = drm_mode_vrefresh(mode);
+	hw770_get_current_fb_info(2,&fb_info);
+	logicalMode.valid_edid = false;
+	if (sdev->hdmi2_edid && drm_edid_header_is_valid((u8 *)sdev->hdmi2_edid) == 8)
+		logicalMode.valid_edid = true;
+
+	logicalMode.x = mode->hdisplay;
+	logicalMode.y = mode->vdisplay;
+	logicalMode.bpp = smi_bpp;
+	logicalMode.hz = refresh_rate;
+	logicalMode.pitch = 0;
+	logicalMode.dispCtrl = 2;
+
+
+	if (monitor_status)
+	{
+		printk("HDMI2: Monitor status is $%d\n", monitor_status);
+		hw770_setMode(&logicalMode, *mode);
+		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[2], INDEX_HDMI2);
+		if (ret != 0)
+		{
+			printk("HDMI Mode not supported!\n");
+			goto error;
+		}
+		hw770_set_current_pitch(INDEX_HDMI2,&fb_info);
+	}
+	return IRQ_HANDLED;
+error:
+	return IRQ_HANDLED;
+
+}
+
+
+
 
 
 

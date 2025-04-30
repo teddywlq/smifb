@@ -515,13 +515,15 @@ irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id)
 	sdev = dev->dev_private;
 	monitor_status = hw770_hdmi_detect(0);
 	if(!monitor_status)
+	{
+		drm_kms_helper_hotplug_event(dev);
 		return IRQ_HANDLED;
-
+	}
 	crtc0 = sdev->smi_enc_tab[2]->crtc;
 	if (crtc0) {
-		printk("CRTC0 found: %p\n", crtc0);
+		dbg_msg("CRTC0 found: %p\n", crtc0);
 	} else {
-		printk("CRTC0 not found\n");
+		dbg_msg("CRTC0 not found\n");
 		goto error;
 	}
 
@@ -546,15 +548,15 @@ irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id)
 
 	if (monitor_status)
 	{
-		printk("HDMI0: Monitor status is $%d\n", monitor_status);
+		dbg_msg("HDMI0: Monitor status is $%d\n", monitor_status);
 		hw770_setMode(&logicalMode, *mode);
 		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[0], INDEX_HDMI0);
 		if (ret != 0)
 		{
-			printk("HDMI Mode not supported!\n");
+			dbg_msg("HDMI Mode not supported!\n");
 			goto error;
 		}
-		hw770_set_current_pitch(INDEX_HDMI0,&fb_info);
+		hw770_set_current_pitch((disp_control_t)INDEX_HDMI0,&fb_info);
 	}
 	return IRQ_HANDLED;
 error:
@@ -579,13 +581,16 @@ irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id)
 	sdev = dev->dev_private;
 	monitor_status = hw770_hdmi_detect(1);
 	if(!monitor_status)
+	{
+		drm_kms_helper_hotplug_event(dev);
 		return IRQ_HANDLED;
+	}
 
 	crtc1 = sdev->smi_enc_tab[3]->crtc;
 	if (crtc1) {
-		printk("CRTC1 found: %p\n", crtc1);
+		dbg_msg("CRTC1 found: %p\n", crtc1);
 	} else {
-		printk("CRTC1 not found\n");
+		dbg_msg("CRTC1 not found\n");
 		goto error;
 	}
 
@@ -610,15 +615,15 @@ irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id)
 
 	if (monitor_status)
 	{
-		printk("HDMI1: Monitor status is $%d\n", monitor_status);
+		dbg_msg("HDMI1: Monitor status is $%d\n", monitor_status);
 		hw770_setMode(&logicalMode, *mode);
 		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[1], INDEX_HDMI1);
 		if (ret != 0)
 		{
-			printk("HDMI Mode not supported!\n");
+			dbg_msg("HDMI Mode not supported!\n");
 			goto error;
 		}
-		hw770_set_current_pitch(INDEX_HDMI1,&fb_info);
+		hw770_set_current_pitch((disp_control_t)INDEX_HDMI1,&fb_info);
 	}
 	return IRQ_HANDLED;
 error:
@@ -642,13 +647,16 @@ irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id)
 	sdev = dev->dev_private;
 	monitor_status = hw770_hdmi_detect(2);
 	if(!monitor_status)
+	{
+		drm_kms_helper_hotplug_event(dev);
 		return IRQ_HANDLED;
+	}
 
 	crtc2 = sdev->smi_enc_tab[4]->crtc;
 	if (crtc2) {
-		printk("CRTC2 found: %p\n", crtc2);
+		dbg_msg("CRTC2 found: %p\n", crtc2);
 	} else {
-		printk("CRTC2 not found\n");
+		dbg_msg("CRTC2 not found\n");
 		goto error;
 	}
 
@@ -673,15 +681,15 @@ irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id)
 
 	if (monitor_status)
 	{
-		printk("HDMI2: Monitor status is $%d\n", monitor_status);
+		dbg_msg("HDMI2: Monitor status is $%d\n", monitor_status);
 		hw770_setMode(&logicalMode, *mode);
 		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[2], INDEX_HDMI2);
 		if (ret != 0)
 		{
-			printk("HDMI Mode not supported!\n");
+			dbg_msg("HDMI Mode not supported!\n");
 			goto error;
 		}
-		hw770_set_current_pitch(INDEX_HDMI2,&fb_info);
+		hw770_set_current_pitch((disp_control_t)INDEX_HDMI2,&fb_info);
 	}
 	return IRQ_HANDLED;
 error:

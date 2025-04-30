@@ -307,7 +307,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 #ifdef USE_HDMICHIP
 		if((r = sii9022xInitChip()) < 0)
 		{	
-			printk("Init HDMI-Tx chip failed!");
+			dbg_msg("Init HDMI-Tx chip failed!");
 			r = 0;	
 		}
 #endif
@@ -377,27 +377,29 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		dev_err(&dev->pdev->dev, "Fatal error during modeset init: %d\n", r);
 		goto out;
 	}
-if (cdev->specId == SPC_SM770)
+#ifdef ENABLE_HDMI_IRQ
+	if (cdev->specId == SPC_SM770)
 	{
 
 		r = devm_request_threaded_irq(cdev->dev->dev, pdev->irq, smi_hdmi0_hardirq,
 									  smi_hdmi0_pnp_handler, IRQF_SHARED,
 									  dev_name(cdev->dev->dev), cdev->dev);
 		if (r)
-			printk("install irq failed , ret = %d\n", r);
+			DRM_ERROR("install irq failed , ret = %d\n", r);
 
 		r = devm_request_threaded_irq(cdev->dev->dev, pdev->irq, smi_hdmi1_hardirq,
 									  smi_hdmi1_pnp_handler, IRQF_SHARED,
 									  dev_name(cdev->dev->dev), cdev->dev);
 		if (r)
-			printk("install irq failed , ret = %d\n", r);
+			DRM_ERROR("install irq failed , ret = %d\n", r);
 
 		r = devm_request_threaded_irq(cdev->dev->dev, pdev->irq, smi_hdmi2_hardirq,
 									  smi_hdmi2_pnp_handler, IRQF_SHARED,
 									  dev_name(cdev->dev->dev), cdev->dev);
 		if (r)
-			printk("install irq failed , ret = %d\n", r);
+			DRM_ERROR("install irq failed , ret = %d\n", r);
 	}
+	#endif
 	cdev->regsave = vmalloc(1024);
 	if(!cdev->regsave)
 	{

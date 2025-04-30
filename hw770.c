@@ -590,7 +590,7 @@ void hw770_hdmi_interrupt_enable(hdmi_index index,int enable)
 	ddk770_HDMI_interrupt_enable(index,enable);
 }
 
-void hw770_get_current_fb_info(hdmi_index index, struct smi_770_fb_info *fb_info)
+void hw770_get_current_fb_info(disp_control_t index, struct smi_770_fb_info *fb_info)
 {
 	unsigned int baseAddr = FB_ADDRESS + (index > 1 ? CHANNEL_OFFSET2 : index * CHANNEL_OFFSET);
 	fb_info->fb_addr = peekRegisterDWord(baseAddr);
@@ -599,11 +599,25 @@ void hw770_get_current_fb_info(hdmi_index index, struct smi_770_fb_info *fb_info
 	fb_info->fb_pitch = peekRegisterDWord(baseAddr);
 }
 
-void hw770_set_current_pitch(hdmi_index index, struct smi_770_fb_info *fb_info)
+void hw770_set_current_pitch(disp_control_t index, struct smi_770_fb_info *fb_info)
 {
 	unsigned int baseAddr = FB_ADDRESS + (index > 1 ? CHANNEL_OFFSET2 : index * CHANNEL_OFFSET);
 	pokeRegisterDWord(baseAddr, fb_info->fb_addr);
 
 	baseAddr = FB_WIDTH + (index > 1 ? CHANNEL_OFFSET2 : index * CHANNEL_OFFSET);
 	pokeRegisterDWord(baseAddr, fb_info->fb_pitch);
+}
+
+void hw770_i2c_reset_busclear(hdmi_index index)
+{
+	ddk770_i2c_reset_busclear(index);
+
+}
+
+int hw770_dp_check_sink_status(dp_index index)
+{
+	int ret;
+	ret = DP_Check_Sink_Status(index);
+
+	return ret;
 }

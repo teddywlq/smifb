@@ -59,7 +59,7 @@ unsigned int ddk768_getPixelType(void)
  */
 unsigned long ddk768_getFrameBufSize()
 {
-#if 1
+#if 0
 	return SMI_MEMORY_SIZE_SM768;
 #else
     unsigned long strapPin, ddrController, rValue;

@@ -847,6 +847,11 @@ static int DP_Rate_Adjust(dp_index index)
 	return -1;
 }
 
+static unsigned char DP_Check_Sink_Power(dp_index index)
+{
+	return g_dp_info[index].sink_power_status;
+}
+
 static int DP_Link_Train_Lock(dp_index index)
 {
 	unsigned char link_status[DP_LINK_STATUS_SIZE];
@@ -856,6 +861,22 @@ static int DP_Link_Train_Lock(dp_index index)
 		return false;
 
 	return true;
+}
+
+int DP_Check_Sink_Status(dp_index index)
+{
+	unsigned char ret = 1;
+
+	// The powerStatus of some displays does not turn on when it is 0.
+	ret = DP_Check_Sink_Power(index);
+	if (ret == 2)
+		return -1;
+	// Sometimes, the training results may change, requiring re-training.
+	ret = DP_Link_Train_Lock(index);
+	if (ret == false)
+		return -1;
+
+	return 0;
 }
 
 static int DP_Link_Train(dp_index index)

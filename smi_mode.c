@@ -224,6 +224,66 @@ static int smi_crtc_gamma_set(struct drm_crtc *crtc, u16 *r, u16 *g,
 
 #endif
 
+
+static void smi_dp_set_mode(struct smi_device *sdev, dp_index index)
+{
+	struct drm_display_mode *mode;
+
+	struct drm_device *dev;
+	logicalMode_t logicalMode;
+	unsigned long refresh_rate;
+	struct drm_crtc *crtc;
+	struct smi_770_fb_info fb_info = {0};
+
+	int ret = 0;
+
+	dev = sdev->dev;
+
+	crtc = sdev->smi_enc_tab[index]->crtc;
+	if (crtc) {
+		printk("CRTC%d found: %p\n", index,crtc);
+	} else {
+		printk("CRTC%d not found\n",index);
+		return;
+	}
+
+	mode = &crtc->state->adjusted_mode;
+
+	if(!mode)
+		return;
+
+	refresh_rate = drm_mode_vrefresh(mode);
+	hw770_get_current_fb_info((disp_control_t)index,&fb_info);
+
+	logicalMode.valid_edid = false;
+
+	if(index == INDEX_DP0){
+		if (sdev->dp0_edid && drm_edid_header_is_valid((u8 *)sdev->dp0_edid) == 8)
+			logicalMode.valid_edid = true;
+	}else if(index == INDEX_DP1){
+		if (sdev->dp1_edid && drm_edid_header_is_valid((u8 *)sdev->dp1_edid) == 8)
+			logicalMode.valid_edid = true;
+	}
+	logicalMode.x = mode->hdisplay;
+	logicalMode.y = mode->vdisplay;
+	logicalMode.bpp = smi_bpp;
+	logicalMode.hz = refresh_rate;
+	logicalMode.pitch = 0;
+	logicalMode.dispCtrl = (disp_control_t)index;
+
+
+	hw770_setMode(&logicalMode, *mode);
+	printk("Starting init SM770 DP %d! Use Channel [%d]\n", index,index);
+
+	ret = hw770_set_dp_mode(&logicalMode, *mode, index);
+
+	if (ret != 0)
+	{
+		printk("DP Mode not supported!\n");
+		return;
+	}
+	hw770_set_current_pitch((disp_control_t)index,&fb_info);
+}
 /*
  * The DRM core requires DPMS functions, but they make little sense in our
  * case and so are just stubs
@@ -409,7 +469,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 	dbg_msg("encode 0->crtc:[%p], 1->crtc:[%p] \n",sdev->smi_enc_tab[0]->crtc, sdev->smi_enc_tab[1]->crtc);
 	dbg_msg("Printf m_connector = %d,  DVI [%d], VGA[%d], HDMI[%d] \n",sdev->m_connector, sdev->m_connector&0x1, sdev->m_connector&0x2, sdev->m_connector&0x4);
 	
-	dbg_msg("wxh:%dx%d@%dHz\n",adjusted_mode->hdisplay,adjusted_mode->vdisplay,refresh_rate);
+	dbg_msg("wxh:%dx%d@%ldHz\n",adjusted_mode->hdisplay,adjusted_mode->vdisplay,refresh_rate);
 
 		
 	if (sdev->specId == SPC_SM750) {
@@ -668,7 +728,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 			
 			if (ret != 0)
 			{
-				printk("HDMI Mode not supported!\n");
+				dbg_msg("HDMI Mode not supported!\n");
 			}
  		}
 		if((sdev->m_connector & USE_DP0 || sdev->m_connector & USE_DP1) && (encoder_index < 2)) //dp start from encoder 0 to encoder 1
@@ -683,7 +743,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 
 			if (ret != 0)
 			{
-				printk("DP Mode not supported!\n");
+				dbg_msg("DP Mode not supported!\n");
 			}
 	
 
@@ -1089,7 +1149,7 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 #endif	
 			break;
 		default:
-			printk(KERN_ERR "Wrong connector index\n");
+			dbg_msg(KERN_ERR "Wrong connector index\n");
 	}
 	} else if(sdev->specId == SPC_SM770){
 		 //three CRTC
@@ -1117,7 +1177,7 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 #endif	
 				break;
 			default:
-				printk(KERN_ERR "Wrong connector index\n");
+				dbg_msg(KERN_ERR "Wrong connector index\n");
 		}
 	}
 
@@ -1140,6 +1200,7 @@ int smi_connector_get_modes(struct drm_connector *connector)
 	void *edid_buf = NULL;
 #endif
 	int count = 0;
+	unsigned int retry = 3;
 	struct smi_device *sdev = connector->dev->dev_private;
 	struct smi_connector *smi_connector = to_smi_connector(connector);
 
@@ -1419,8 +1480,16 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		if(connector->connector_type == DRM_MODE_CONNECTOR_HDMIA)
 		{
 #if USE_I2C_ADAPTER
+read_again0:
 			sdev->hdmi0_edid = drm_get_edid(
 				connector, &smi_connector->adapter);
+			if((sdev->m_connector & USE_HDMI0) && !sdev->hdmi0_edid && retry)
+			{
+				retry--;
+				dbg_msg("hdmi 0 iic resrt\n\n");
+				hw770_i2c_reset_busclear(INDEX_HDMI0);
+				goto read_again0;
+			}
 			if (sdev->hdmi0_edid)
 #else
 			ret = hw770_get_hdmi_edid(
@@ -1455,8 +1524,16 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		if(connector->connector_type == DRM_MODE_CONNECTOR_HDMIB)
 		{
 #if USE_I2C_ADAPTER
+read_again1:
 			sdev->hdmi1_edid = drm_get_edid(
 				connector, &smi_connector->adapter);
+			if((sdev->m_connector & USE_HDMI1) && !sdev->hdmi1_edid && retry)
+			{
+				retry--;
+				dbg_msg("hdmi 1 iic resrt\n\n");
+				hw770_i2c_reset_busclear(INDEX_HDMI1);
+				goto read_again1;
+			}
 			if (sdev->hdmi1_edid)
 #else
 			ret = hw770_get_hdmi_edid(
@@ -1491,8 +1568,16 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		if(connector->connector_type == DRM_MODE_CONNECTOR_DVID)
 		{
 #if USE_I2C_ADAPTER
+read_again2:
 			sdev->hdmi2_edid = drm_get_edid(
 				connector, &smi_connector->adapter);
+			if ((sdev->m_connector & USE_HDMI2) && !sdev->hdmi2_edid && retry)
+			{
+				retry--;
+				printk("hdmi 2 iic resrt\n\n");
+				hw770_i2c_reset_busclear(INDEX_HDMI2);
+				goto read_again2;
+			}
 			if (sdev->hdmi2_edid)
 #else
 			ret = hw770_get_hdmi_edid(
@@ -1532,7 +1617,7 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 				 struct drm_display_mode *mode)
 {
 	struct smi_device *sdev = connector->dev->dev_private;
-
+	
 	u32 vrefresh = drm_mode_vrefresh(mode);	
 	
 	if ((vrefresh < 29) || (vrefresh > 61) || (vrefresh > 31 && vrefresh < 59)){  
@@ -1568,14 +1653,13 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 	}
 
 	}else{
-			if(mode->clock >= 300000)
-				return MODE_NOCLOCK;
-
-			if(mode->clock >=300000 && (count_set_bits(sdev->m_connector) > 2))  //SM770 can't support triple 4k@60hz
-				return MODE_NOCLOCK;
-
-			if((sdev->vram_size == MB(256)) &&  (mode->clock >= 200000))
-				return MODE_NOMODE;
+		if((mode->hdisplay > 3840) || (mode->vdisplay > 2160) || (mode->clock > 300000))
+		return MODE_NOMODE;
+		if(mode->clock >=300000 && (count_set_bits(sdev->m_connector) > 2))  //SM770 can't support triple 4k@60hz
+			return MODE_NOCLOCK;
+		//For Xorg, if sram is 256Mb, can not support triple 4k@30hz
+		if((sdev->vram_size == MB(256)) &&  (mode->clock >= 250000) && (count_set_bits(sdev->m_connector) > 2))
+			return MODE_NOMODE;
 	}
 		
 
@@ -1830,6 +1914,10 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 			
 				dbg_msg("detect DP0 connected\n");
 				sdev->m_connector = sdev->m_connector|USE_DP0;
+				ret = hw770_dp_check_sink_status(0);
+				if(ret)
+					smi_dp_set_mode(sdev, 0);
+
 				return connector_status_connected;
 			}
 			else
@@ -1866,6 +1954,10 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 			{
 				dbg_msg("detect DP1 connected\n");
 				sdev->m_connector = sdev->m_connector|USE_DP1;
+				ret = hw770_dp_check_sink_status(1);
+				if(ret)
+					smi_dp_set_mode(sdev, 1);
+					
 				return connector_status_connected;
 				
 
@@ -1967,6 +2059,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 		else
 			return connector_status_unknown;
 	}
+	return connector_status_unknown;
 }
 
 static void smi_connector_destroy(struct drm_connector *connector)
@@ -2048,7 +2141,7 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 			drm_connector_init(dev, connector, &smi_vga_connector_funcs, DRM_MODE_CONNECTOR_HDMIA);
 			break;
 		default:
-			printk("error index of Connector\n");
+			dbg_msg("error index of Connector\n");
 	}
 	}else if(sdev->specId == SPC_SM770){
 		switch (index)
@@ -2069,7 +2162,7 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 				drm_connector_init(dev, connector, &smi_vga_connector_funcs, DRM_MODE_CONNECTOR_DVID);
 				break;
 			default:
-				printk("error index of Connector\n");
+				dbg_msg("error index of Connector\n");
 		}
 	}
 
@@ -2088,7 +2181,11 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 	}
 
 	drm_connector_helper_add(connector, &smi_vga_connector_helper_funcs);
-	connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
+
+	if (sdev->specId == SPC_SM770)
+		connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT | DRM_CONNECTOR_POLL_HPD;	
+	else
+		connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
 
 #if (KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE)
 	drm_connector_register(connector);
@@ -2176,7 +2273,7 @@ int smi_modeset_init(struct smi_device *cdev)
 			DRM_ERROR("smi_%s_init failed\n", index?"VGA":"DVI");
 			return -1;
 		}
-
+		cdev->smi_conn_tab[index] = connector;
 #if ((KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE))
 		drm_connector_attach_encoder(connector, encoder);
 #else

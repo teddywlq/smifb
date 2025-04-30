@@ -427,6 +427,6 @@ void DP_Disable_Output(dp_index index);
 void DP_Audio_Reset(dp_index index);
 
 int Dp_HDP_Irq_Handle(dp_index index);
-
+int DP_Check_Sink_Status(dp_index index);
 long ddk770_DP_AdaptHWI2CInit(struct smi_connector *connector);
 #endif  /* _DP_H_ */

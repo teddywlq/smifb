@@ -38,7 +38,7 @@
 
 #define DRIVER_NAME		"smifb"
 #define DRIVER_DESC		"SiliconMotion GPU DRM Driver"
-#define DRIVER_DATE		"20250329"
+#define DRIVER_DATE		"20250331"
 
 #define DRIVER_MAJOR		1
 #define DRIVER_MINOR		5
@@ -118,6 +118,12 @@ extern int smi_indent;
 #define UNUSED(x)
 #else
 #define UNUSED(x) x
+#endif
+
+#ifndef CONFIG_LOONGARCH
+#define ENABLE_HDMI_IRQ 
+#else
+#undef  ENABLE_HDMI_IRQ
 #endif
 
 #define USE_I2C_ADAPTER 1
@@ -223,6 +229,7 @@ struct smi_device {
 	//bit 0: DVI, bit 1: VGA, bit 2: HDMI, bit 3: HDMI1, bit 4: HDMI2, bit 5: DP, bit 6: DP1
 
 	struct drm_encoder *smi_enc_tab[MAX_ENCODER_770];
+	struct drm_connector *smi_conn_tab[MAX_ENCODER_770];
 
 	struct smi_mode_info		mode_info;
 

@@ -177,7 +177,9 @@ int hw770_hdmi_detect(hdmi_index hdmi_index);
 int hw770_check_pnp_interrupt(hdmi_index index);
 void hw770_hdmi_interrupt_enable(hdmi_index index,int enable);
 
-void  hw770_get_current_fb_info(hdmi_index index, struct smi_770_fb_info *fb_info);
-void hw770_set_current_pitch(hdmi_index index, struct smi_770_fb_info *fb_info);
+void  hw770_get_current_fb_info(disp_control_t index, struct smi_770_fb_info *fb_info);
+void hw770_set_current_pitch(disp_control_t index, struct smi_770_fb_info *fb_info);
+void hw770_i2c_reset_busclear(hdmi_index index);
+int hw770_dp_check_sink_status(dp_index index);
 
 #endif

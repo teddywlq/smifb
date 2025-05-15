@@ -980,6 +980,7 @@ static void smi_encoder_dpms(struct drm_encoder *encoder, int mode)
 		}
 	}
 	
+
 	dbg_msg("The current connect group = [%d], we deal with con=[%d], mode=[%s]\n", sdev->m_connector,index, (mode == DRM_MODE_DPMS_OFF)?"Off":"ON");
 	if(sdev->specId == SPC_SM750)
 	{	
@@ -987,7 +988,7 @@ static void smi_encoder_dpms(struct drm_encoder *encoder, int mode)
 			dbg_msg("disable dpms, index=%d\n",index);
 			setDisplayControl(index, DISP_OFF); 
 		}else
-		{ 
+		{
 			setDisplayControl(index, DISP_ON); 
 			swPanelPowerSequence(DISP_ON, 4); 
 			dbg_msg("enable dpms ,index=%d\n",index);

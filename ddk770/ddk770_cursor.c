@@ -112,8 +112,9 @@ void ddk770_setCursorPosition(
     unsigned long dy,               /* Y Coordinate of the cursor */
     unsigned char topOutside,       /* Top Boundary Select: either partially outside (= 1) 
                                        or within the screen top boundary (= 0) */
-    unsigned char leftOutside       /* Left Boundary Select: either partially outside (= 1) 
+    unsigned char leftOutside,       /* Left Boundary Select: either partially outside (= 1) 
                                        or within the screen left boundary (= 0) */
+    unsigned int enable
 )
 {  
     unsigned long cursorRegister, value;
@@ -141,10 +142,17 @@ void ddk770_setCursorPosition(
     else{        
         value = FIELD_SET(value, HWC_LOCATION, LEFT, INSIDE);
     }
+
 	value = FIELD_VALUE(value, HWC_LOCATION, SIZE, 0);
 
+    if(enable)
+    	value = FIELD_SET(value, HWC_LOCATION, PREFETCH, ENABLE);
+    else
+		value = FIELD_SET(value, HWC_LOCATION, PREFETCH, DISABLE);
     /* Set the register accordingly, either Panel cursor or CRT cursor */
     pokeRegisterDWord(cursorRegister, value);
+    
+    ddk770_waitDispVerticalSync(dispControl,2);
 }
 
 

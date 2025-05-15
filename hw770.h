@@ -182,4 +182,7 @@ void hw770_set_current_pitch(disp_control_t index, struct smi_770_fb_info *fb_in
 void hw770_i2c_reset_busclear(hdmi_index index);
 int hw770_dp_check_sink_status(dp_index index);
 
+int hw770_get_current_mode_width(disp_control_t index);
+
+void SetCursorPrefetch(disp_control_t dispControl, unsigned int enable);
 #endif

@@ -15,11 +15,11 @@
 #define LINUX_VERSION_CODE 0x05000A//5.0.10
 #elif RHEL_MINOR==2
 #define LINUX_VERSION_CODE 0x040100//4.1.0
+#endif//RHEL_MINOR==6
+
 #endif//RHEL_MAJOR==7
 
 #endif//RHEL_MAJOR
-
-#endif
 
 
 

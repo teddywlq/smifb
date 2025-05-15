@@ -621,3 +621,12 @@ int hw770_dp_check_sink_status(dp_index index)
 
 	return ret;
 }
+
+int hw770_get_current_mode_width(disp_control_t index)
+{
+	int width;
+	unsigned int baseAddr = HORIZONTAL_TOTAL + (index > 1 ? CHANNEL_OFFSET2 : index * CHANNEL_OFFSET);
+	width = (peekRegisterDWord(baseAddr)&0xfff) + 1;
+
+	return width;
+}

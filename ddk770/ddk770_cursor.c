@@ -152,7 +152,7 @@ void ddk770_setCursorPosition(
     /* Set the register accordingly, either Panel cursor or CRT cursor */
     pokeRegisterDWord(cursorRegister, value);
     
-    ddk770_waitDispVerticalSync(dispControl,2);
+    //ddk770_waitDispVerticalSync(dispControl,2);
 }
 
 

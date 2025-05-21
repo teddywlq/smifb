@@ -212,6 +212,9 @@ static int smi_drm_freeze(struct drm_device *dev)
 			 smi_audio_suspend(sdev);
 #endif
 		hw770_suspend(sdev->regsave_770);
+		hw770_hdmi_interrupt_enable(0,0);
+		hw770_hdmi_interrupt_enable(1,0);
+		hw770_hdmi_interrupt_enable(2,0);
     }
 	LEAVE(0);
 

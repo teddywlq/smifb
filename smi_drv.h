@@ -520,7 +520,8 @@ irqreturn_t smi_hdmi2_hardirq(int irq, void *dev_id);
 #define USE_DP0 	(1 << 6)
 #define USE_DP1 	(1 << 7)
 
-
+#define HDMI_INT_HPD 1
+#define HDMI_INT_NOT_HPD 2
 /* please use revision id to distinguish sm750le and sm750*/
 #define SPC_SM750 	0
 #define SPC_SM712 	1

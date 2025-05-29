@@ -1137,11 +1137,13 @@ int hdmiISR(
 		  {
 		        // What we need to do in ISR
 		        printk("We are in hdmi%d hpd ISR\n",index);
-		      	ret = 1;
+		      	ret = HDMI_INT_HPD;
 		       	phy_hot_plug_detected(index);
 			
-		  }
-	    }
+		  }else
+		  	ret = HDMI_INT_NOT_HPD;
+	    }else
+			ret = HDMI_INT_NOT_HPD;
 			/* Clear all the HDMI Interrupt */ 
 		ddk770_HDMI_Clear_Intr_State(index); 
 	}

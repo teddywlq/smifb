@@ -247,8 +247,7 @@ static void smi_dp_set_mode(struct smi_device *sdev, dp_index index)
 		return;
 	}
 
-	mode = &crtc->state->adjusted_mode;
-
+	mode = &crtc->mode;
 	if(!mode)
 		return;
 
@@ -321,9 +320,16 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 	struct smi_framebuffer *smi_fb;
 	struct smi_crtc *smi_crtc = to_smi_crtc(crtc); 
 	struct smi_device *sdev = crtc->dev->dev_private;
-
+	unsigned int ctrl_index,i;
 	ENTER();
-
+	for (i = 0; i < MAX_ENCODER(sdev->specId); i++)
+	{
+		if (crtc == sdev->smi_enc_tab[i]->crtc)
+		{
+			ctrl_index = i;
+			break;
+		}
+	}
 	if (old_fb) {
 		smi_fb = to_smi_framebuffer(old_fb);
 		bo = gem_to_smi_bo(smi_fb->obj);
@@ -394,7 +400,8 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 		}
 		smi_crtc->CursorOffset = align_offset / (smi_bpp / 8);
 	}
-
+	if(ctrl_index>1)
+		hw770_hdmi_interrupt_enable(dst_ctrl,1);
 	LEAVE(0);
 }
 static int smi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
@@ -724,7 +731,7 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 		
             ret = hw770_set_hdmi_mode(&logicalMode, *adjusted_mode, sdev->is_hdmi[hdmi_index],hdmi_index);
 			
-			hw770_hdmi_interrupt_enable(hdmi_index,1);
+
 			
 			if (ret != 0)
 			{
@@ -1098,6 +1105,7 @@ static const struct drm_encoder_helper_funcs smi_encoder_helper_funcs = {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
 	.mode_fixup = smi_encoder_mode_fixup,
 #endif
+	
 	.mode_set = smi_encoder_mode_set,
 	.prepare = smi_encoder_prepare,
 	.commit = smi_encoder_commit,
@@ -1915,9 +1923,11 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 			
 				dbg_msg("detect DP0 connected\n");
 				sdev->m_connector = sdev->m_connector|USE_DP0;
-				ret = hw770_dp_check_sink_status(0);
-				if(ret)
-					smi_dp_set_mode(sdev, 0);
+				if(connector->status == connector_status_connected){
+					ret = hw770_dp_check_sink_status(0);
+					if(ret)
+						smi_dp_set_mode(sdev, 0);
+				}
 
 				return connector_status_connected;
 			}
@@ -1955,10 +1965,11 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 			{
 				dbg_msg("detect DP1 connected\n");
 				sdev->m_connector = sdev->m_connector|USE_DP1;
-				ret = hw770_dp_check_sink_status(1);
-				if(ret)
-					smi_dp_set_mode(sdev, 1);
-					
+				if(connector->status == connector_status_connected){
+					ret = hw770_dp_check_sink_status(1);
+					if(ret)
+						smi_dp_set_mode(sdev, 1);
+				}	
 				return connector_status_connected;
 				
 

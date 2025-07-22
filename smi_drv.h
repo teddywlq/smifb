@@ -291,6 +291,7 @@ struct smi_connector {
 	bool i2c_is_segment;
 	bool i2c_is_regaddr;
 	int i2c_slave_reg;
+	int i2c_slave_number;
 	//struct drm_dp_aux dp_aux;
 };
 

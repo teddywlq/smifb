@@ -109,7 +109,13 @@ void hw770_suspend(struct smi_770_register * pSave)
 
 void hw770_resume(struct smi_770_register * pSave)
 {
+	if (ddk770_GetChipRev() == CHIP_REV_AB) {
+		pokeRegisterDWord(0x130, 0x78000000);
+	}
 
+	ddk770_iis_Init();
+	hw770_init_hdmi();
+	hw770_init_dp();
 	// int i;
 
 	// pokeRegisterDWord(CLOCK_ENABLE, pSave->clock_enable);

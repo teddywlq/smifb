@@ -1,11 +1,6 @@
-/*
- * Copyright 2016 SiliconMotion Inc.
- *
- * This file is subject to the terms and conditions of the GNU General
- * Public License version 2. See the file COPYING in the main
- * directory of this archive for more details.
- *
- */
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright (c) 2023, SiliconMotion Inc.
+
 #include <linux/module.h>
 #include <linux/console.h>
 #include <drm/drmP.h>
@@ -26,7 +21,6 @@ int smi_bpp = 32;
 int force_connect = 0;
 int smi_pat = 0xff;
 int lvds_channel = 0;
-int usb_host = 0;
 int audio_en = 0;
 int fixed_width = 0;
 int fixed_height = 0;
@@ -59,8 +53,6 @@ MODULE_PARM_DESC(width, "Fixed mode width for LVDS or nopnp (default:0)");
 module_param_named(width, fixed_width, int, 0400);
 MODULE_PARM_DESC(height, "Fixed mode height for LVDS or nopnp (default:0)");
 module_param_named(height, fixed_height, int, 0400);
-MODULE_PARM_DESC(usbhost, "SM768 USB EHCI Host Disable/Enable(default:0)");
-module_param_named(usbhost, usb_host, int, 0400);
 MODULE_PARM_DESC(audio, "SM768/SM770 Audio, 0=diable 1=use UDA1345 Codec, 2=use WM8978 Codec(default:0), SM770 only support HDMI/DP Audio");
 module_param_named(audio, audio_en, int, 0400);
 MODULE_PARM_DESC(hwi2c, "HW I2C for EDID reading for SM750/SM768, 0=SW I2C 1=HW I2C(default:0)");

@@ -4,16 +4,16 @@
 #include <linux/version.h>
 #ifdef RHEL_MAJOR
 #undef LINUX_VERSION_CODE
-#if RHEL_MAJOR==7
-#if RHEL_MINOR==6
+#if RHEL_MAJOR == 7
+#if RHEL_MINOR == 6
 #define LINUX_VERSION_CODE 0x041113//4.17.19
-#elif RHEL_MINOR==7
+#elif RHEL_MINOR == 7
 #define LINUX_VERSION_CODE 0x05000A//5.0.10
-#elif RHEL_MINOR==8
+#elif RHEL_MINOR == 8
 #define LINUX_VERSION_CODE 0x05000A//5.0.10
-#elif RHEL_MINOR==9
+#elif RHEL_MINOR == 9
 #define LINUX_VERSION_CODE 0x05000A//5.0.10
-#elif RHEL_MINOR==2
+#elif RHEL_MINOR == 2
 #define LINUX_VERSION_CODE 0x040100//4.1.0
 #endif//RHEL_MINOR==6
 

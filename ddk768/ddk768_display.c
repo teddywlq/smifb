@@ -1,14 +1,3 @@
-/*******************************************************************
-* 
-*         Copyright (c) 2007 by Silicon Motion, Inc. (SMI)
-* 
-*  All rights are reserved. Reproduction or in part is prohibited
-*  without the written consent of the copyright owner.
-* 
-*  DISPLAY.C --- Voyager GX SDK 
-*  This file contains the source code for the panel and CRT functions.
-* 
-*******************************************************************/
 #include "ddk768_reg.h"
 
 
@@ -233,7 +222,7 @@ void ddk768_waitVSyncLine(disp_control_t dispControl)
 /*
  * Get current display line number
  */
-unsigned long getDisplayLine(disp_control_t dispControl)
+__attribute__((unused)) static unsigned long getDisplayLine(disp_control_t dispControl)
 {
     unsigned long ulRegAddr;
     unsigned long ulRegValue;
@@ -400,7 +389,7 @@ void ddk768_setDisplayEnable(
  *
  */
 
-void setDataDirection(
+__attribute__((unused)) static void setDataDirection(
    disp_control_t dispControl, /* Channel 0 or Channel 1) */
    disp_state_t dispState      /* ON or OFF */
 )

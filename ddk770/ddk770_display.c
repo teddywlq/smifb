@@ -496,7 +496,7 @@ void ddk770_SetLVDSHalfPixel(unsigned int enable)
 void ddk770_setupLVDS(unsigned short lvds_ch)
 {
     //unsigned int ulTmpValue;
-    unsigned int lvdsAddr;
+    unsigned int lvdsAddr = 0;
 
     switch(lvds_ch){
         case 0:

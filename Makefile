@@ -5,7 +5,7 @@ obj-m := ${Driver}.o
 ${Driver}-objs :=smi_drv.o smi_fbdev.o smi_main.o smi_mode.o smi_plane.o smi_ttm.o smi_prime.o hw750.o hw768.o hw770.o
 ${Driver}-objs += ddk750/ddk750_help.o  ddk750/ddk750_chip.o  ddk750/ddk750_clock.o  ddk750/ddk750_mode.o ddk750/ddk750_power.o ddk750/ddk750_helper.o ddk750/ddk750_display.o ddk750/ddk750_2d.o ddk750/ddk750_edid.o ddk750/ddk750_swi2c.o ddk750/ddk750_hwi2c.o ddk750/ddk750_cursor.o
 
-${Driver}-y += smi_usb.o
+
 
 ifeq ($(hdmi),1)
 EXTRA_CFLAGS += -DUSE_HDMICHIP
@@ -48,8 +48,11 @@ ddk770/ddk770_iis.o ddk770/ddk770_hdmi_phy.o ddk770/ddk770_hdmi.o ddk770/ddk770_
 EXTRA_CFLAGS += -DPRIME
 
 
-ccflags-y :=-O2 -Iinclude/drm -fno-tree-scev-cprop -D_D_SMI -D_D_SMI_D -D__cdecl
+ccflags-y :=-O2 -Iinclude/drm -D_D_SMI -D_D_SMI_D -D__cdecl
 
+ifeq ($(CC_TYPE),gcc)
+ccflags-y += -fno-tree-scev-cprop
+endif
 else
 
 knv :=$(shell uname -r)

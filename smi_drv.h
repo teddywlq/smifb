@@ -149,7 +149,6 @@ extern int smi_indent;
 extern int smi_bpp;
 extern int force_connect;
 extern int lvds_channel;
-extern int usb_host;
 extern int audio_en;
 extern int fixed_width;
 extern int fixed_height;
@@ -213,7 +212,6 @@ struct smi_framebuffer {
 struct smi_device {
 	struct drm_device		*dev;
 	struct snd_card 		*card;
-	struct usb_hcd          *hcd;
 	unsigned long			flags;	
 
 	resource_size_t			rmmio_base;

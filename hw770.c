@@ -18,6 +18,7 @@
 #include "ddk770/ddk770_iis.h"
 #include "ddk770/ddk770_dp.h"
 #include "ddk770/ddk770_intr.h"
+#include "ddk770/ddk770_chip.h"
 #include "ddk770/ddk770_wm8978.h"
 #include "hw770.h"
 #include "smi_snd.h"
@@ -132,6 +133,8 @@ void hw770_resume(struct smi_770_register * pSave)
 	// 	pokeRegisterDWord(0x8000 + DISPLAY_CTRL + i * 4, pSave->secondary_display_ctrl[i]);
 	// for (i = 0; i < 4; i++)
 	// 	pokeRegisterDWord(0x8000 + HWC_CONTROL + i * 4, pSave->secondary_hwcurs_ctrl[i]);
+
+
 
 }
 void hw770_set_base(disp_control_t dispControl,int pitch,int base_addr)

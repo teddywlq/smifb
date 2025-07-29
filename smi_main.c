@@ -1,11 +1,5 @@
-/*
- * Copyright 2016 SiliconMotion Inc.
- *
- * This file is subject to the terms and conditions of the GNU General
- * Public License version 2. See the file COPYING in the main
- * directory of this archive for more details.
- *
- */
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright (c) 2023, SiliconMotion Inc.
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
@@ -341,14 +335,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	if((cdev->specId == SPC_SM768 || cdev->specId == SPC_SM770) && audio_en)
 			smi_audio_init(dev);
 #endif
-	if(cdev->specId == SPC_SM768 )
-	{
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
-		if(usb_host)
-			smi_ehci_init(dev);
-#endif	
-	}
 
 
 
@@ -460,15 +447,6 @@ int smi_driver_unload(struct drm_device *dev)
 			smi_audio_remove(dev);
     }
 #endif
-	if(cdev->specId == SPC_SM768)
-	{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
-		if(usb_host){
-			smi_ehci_remove(dev);
-			smi_ehci_shutdown(dev);
-		}
-#endif
-   }
 
 	vfree(cdev->regsave);
 	kfree(cdev);

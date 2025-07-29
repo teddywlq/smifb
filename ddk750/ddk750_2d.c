@@ -1,16 +1,3 @@
-/*******************************************************************
-* 
-*         Copyright (c) 2007 by Silicon Motion, Inc. (SMI)
-* 
-*  All rights are reserved. Reproduction or in part is prohibited
-*  without the written consent of the copyright owner.
-* 
-*  2d.C --- SM750/SM718 DDK 
-*  This file contains the definitions for the 2D functions.
-* 
-*******************************************************************/
-
-
 #include "ddk750_defs.h"
 #include "ddk750_hardware.h"
 #include "ddk750_chip.h"
@@ -326,7 +313,7 @@ unsigned long ulColor)    /* Color to compare. */
  * It returns a double word with the transparent fields properly set,
  * while other fields are 0.
  */
-unsigned long deGetTransparency(void)
+static unsigned long deGetTransparency(void)
 {
     unsigned long de_ctrl;
 
@@ -343,7 +330,7 @@ unsigned long deGetTransparency(void)
 /*
  * This function sets the pixel format that will apply to the 2D Engine.
  */
-void deSetPixelFormat(
+static void deSetPixelFormat(
     unsigned long bpp
 )
 {

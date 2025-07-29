@@ -1186,8 +1186,10 @@ void DP_Set_Channel(dp_index index, disp_control_t dc)
         disp_index = DP0;
     }else if (index == INDEX_DP1){
         disp_index = DP1;
-    }
-    
+    }else{
+		return;
+	}
+
     setDCMUX(disp_index, dc);
 }
 
@@ -1200,8 +1202,10 @@ void DP_Clear_Channel(dp_index index)
         disp_index = DP0;
     }else if (index == INDEX_DP1){
         disp_index = DP1;
-    }
-    
+    }else{
+		return;
+	}
+
     ClearDCMUX(disp_index);
 }
 
@@ -1214,7 +1218,9 @@ unsigned char DP_Get_Channel(dp_index index)
         disp_index = DP0;
     }else if (index == INDEX_DP1){
         disp_index = DP1;
-    }
+    }else{
+		return 0;
+	}
     
     return GetDCMUX(disp_index);
 }
@@ -1582,7 +1588,6 @@ static int ddk770_dp_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], i
 	}
 
 	if (!DP_HPD_Detect(index)) {
-		pr_err("DP[%d] Detect failed\n", index);
 		ret = -ENODEV;
 		goto end;
 	}

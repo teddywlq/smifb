@@ -14,7 +14,9 @@
 #include "ddk770_hdmi_audio.h"
 #include "ddk770_gpio.h"
 
+
 static DEFINE_MUTEX(hdmi_mode_mutex);
+
 int g_if_scrambling_lowR_HDMI[3] = { 0, 0, 0};
 int g_scdc_present[3] = { 1, 1, 1};
 
@@ -677,9 +679,12 @@ void ddk770_HDMI_Set_Channel(hdmi_index index, disp_control_t dc)
     }else if (index == INDEX_HDMI2)
     {
         disp_index = HDMI2;
+    } else {
+	    dbg_msg("invalid hdmi index\n");
+	    return;
     }
-    
-	setDCMUX(disp_index, dc);
+
+    setDCMUX(disp_index, dc);
 }
 
 void ddk770_HDMI_Clear_Channel(hdmi_index index)
@@ -694,6 +699,9 @@ void ddk770_HDMI_Clear_Channel(hdmi_index index)
     }else if (index == INDEX_HDMI2)
     {
         disp_index = HDMI2;
+    }else {
+	    dbg_msg("invalid hdmi index\n");
+	    return;
     }
     
 	ClearDCMUX(disp_index);
@@ -711,9 +719,12 @@ unsigned char ddk770_HDMI_Get_Channel(hdmi_index index)
     }else if (index == INDEX_HDMI2)
     {
         disp_index = HDMI2;
+    } else {
+	    dbg_msg("invalid hdmi index\n");
+	    return 0;
     }
-    
-	return GetDCMUX(disp_index);
+
+    return GetDCMUX(disp_index);
 }
 
 void ddk770_i2c_reset_busclear(hdmi_index index)
@@ -852,7 +863,7 @@ long ddk770_HDMI_Set_Mode(hdmi_index index, logicalMode_t *pLogicalMode, mode_pa
     cea_parameter_t cea_mode = {0};
     u8 scdc_val;
     long ret =0;
-	unsigned long flags;
+
 	ret = Get_CEA_Mode(pLogicalMode,&cea_mode, pModeParam, 0);
 	if(ret < 0)
 	{
@@ -918,6 +929,7 @@ long ddk770_HDMI_Set_Mode(hdmi_index index, logicalMode_t *pLogicalMode, mode_pa
 	
 	ddk770_HDMI_Intr_Mute(index,0);
     api_avmute(index,0);
+
 	mutex_unlock(&hdmi_mode_mutex);
     return ret;
 

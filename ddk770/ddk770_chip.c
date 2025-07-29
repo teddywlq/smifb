@@ -155,7 +155,7 @@ long ddk770_initChipParamEx(initchip_param_t * pInitParam)
  * Return: 0 (or NO_ERROR) if successful.
  *        -1 if fail.
  */
-long ddk770_initChip(int argc, char const *argv[])
+long ddk770_initChip(void)
 {
     initchip_param_t initParam;
     

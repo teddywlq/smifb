@@ -1,11 +1,5 @@
-/*
- * Copyright 2016 SiliconMotion Inc.
- *
- * This file is subject to the terms and conditions of the GNU General
- * Public License version 2. See the file COPYING in the main
- * directory of this archive for more details.
- *
- */
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright (c) 2023, SiliconMotion Inc.
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
@@ -1200,7 +1194,50 @@ static struct drm_encoder *smi_encoder_init(struct drm_device *dev, int index)
 void drm_set_preferred_mode(struct drm_connector *connector, int hpref, int vpref) {}
 #endif
 
+static int hdmi_get_edid_property(struct drm_connector *connector,
+				  struct edid *hdmi_edid, int use_flag,
+				  hdmi_index index, int retry)
+{
+	int count = 0;
+	struct smi_device *sdev = connector->dev->dev_private;
+	struct smi_connector *smi_connector = to_smi_connector(connector);
 
+	ENTER();
+
+#if USE_I2C_ADAPTER
+read_again0:
+	hdmi_edid = drm_get_edid(connector, &smi_connector->adapter);
+
+	if ((sdev->m_connector & use_flag) && !hdmi_edid && retry) {
+		retry--;
+		dbg_msg("HDMI_%d iic reset\n\n", index);
+		hw770_i2c_reset_busclear(index);
+		goto read_again0;
+	}
+	if (hdmi_edid)
+#else
+	int ret = hw770_get_hdmi_edid(index, (unsigned char *)hdmi_edid);
+	if (ret)
+#endif
+	{
+		dbg_msg("HDMI_%d get edid success.\n", index);
+		drm_connector_update_edid_property(connector, hdmi_edid);
+		count = drm_add_edid_modes(connector, hdmi_edid);
+		sdev->is_hdmi[index] = drm_detect_hdmi_monitor(hdmi_edid);
+		ddk770_HDMI_set_SCDC(index, (u8 *)hdmi_edid);
+		dbg_msg("SM770 HDMI_%d connector is %s\n", index,
+			(sdev->is_hdmi[index] ? "HDMI monitor" :
+						"DVI monitor"));
+	}
+	if (hdmi_edid == NULL || count == 0) {
+		drm_connector_update_edid_property(connector, NULL);
+		count = drm_add_modes_noedid(connector, 3840, 2160);
+		drm_set_preferred_mode(connector, fixed_width, fixed_height);
+		sdev->is_hdmi[index] = true;
+	}
+
+	LEAVE(count);
+}
 
 int smi_connector_get_modes(struct drm_connector *connector)
 {
@@ -1486,139 +1523,26 @@ int smi_connector_get_modes(struct drm_connector *connector)
 			}
 
 		}
-		if(connector->connector_type == DRM_MODE_CONNECTOR_HDMIA)
-		{
-#if USE_I2C_ADAPTER
-read_again0:
-			sdev->hdmi0_edid = drm_get_edid(
-				connector, &smi_connector->adapter);
-			if((sdev->m_connector & USE_HDMI0) && !sdev->hdmi0_edid && retry)
-			{
-				retry--;
-				dbg_msg("hdmi 0 iic resrt\n\n");
-				hw770_i2c_reset_busclear(INDEX_HDMI0);
-				goto read_again0;
-			}
-			if (sdev->hdmi0_edid)
-#else
-			ret = hw770_get_hdmi_edid(
-				0, (unsigned char *)sdev->hdmi0_edid);
-			if (ret)
-#endif
-			{
-				dbg_msg("HDMI0 get edid success.\n");
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))	
-				drm_connector_update_edid_property(connector, sdev->hdmi0_edid);
-#else
-				drm_mode_connector_update_edid_property(connector, sdev->hdmi0_edid);
-#endif		
-				count = drm_add_edid_modes(connector, sdev->hdmi0_edid);
-				sdev->is_hdmi[0] = drm_detect_hdmi_monitor(sdev->hdmi0_edid);
-				ddk770_HDMI_set_SCDC(0, (u8 *)sdev->hdmi0_edid);
-                dbg_msg("SM770 HDMI0 connector is %s\n",(sdev->is_hdmi[0] ? "HDMI monitor" : "DVI monitor"));
-			}
-			if (sdev->hdmi0_edid == NULL || count == 0)
-			{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
-				drm_connector_update_edid_property(connector, NULL);
-#else
-				drm_mode_connector_update_edid_property(connector, NULL);
-#endif
-				count = drm_add_modes_noedid(connector, 3840, 2160);
-				drm_set_preferred_mode(connector, fixed_width, fixed_height);
-				sdev->is_hdmi[0] = true;
-			}
-
+		if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+			count = hdmi_get_edid_property(connector,
+						       sdev->hdmi0_edid,
+						       USE_HDMI0, INDEX_HDMI0,
+						       retry);
 		}
-		if(connector->connector_type == DRM_MODE_CONNECTOR_HDMIB)
-		{
-#if USE_I2C_ADAPTER
-read_again1:
-			sdev->hdmi1_edid = drm_get_edid(
-				connector, &smi_connector->adapter);
-			if((sdev->m_connector & USE_HDMI1) && !sdev->hdmi1_edid && retry)
-			{
-				retry--;
-				dbg_msg("hdmi 1 iic resrt\n\n");
-				hw770_i2c_reset_busclear(INDEX_HDMI1);
-				goto read_again1;
-			}
-			if (sdev->hdmi1_edid)
-#else
-			ret = hw770_get_hdmi_edid(
-				1, (unsigned char *)sdev->hdmi1_edid);
-			if (ret)
-#endif
-			{
-				dbg_msg("HDMI1 get edid success.\n");
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
-				drm_connector_update_edid_property(connector, sdev->hdmi1_edid);
-#else
-				drm_mode_connector_update_edid_property(connector, sdev->hdmi1_edid);
-#endif			
-				count = drm_add_edid_modes(connector, sdev->hdmi1_edid);
-				sdev->is_hdmi[1] = drm_detect_hdmi_monitor(sdev->hdmi1_edid);
-				ddk770_HDMI_set_SCDC(1, (u8 *)sdev->hdmi1_edid);
-                dbg_msg("SM770 HDMI1 connector is %s\n",(sdev->is_hdmi[1] ? "HDMI monitor" : "DVI monitor"));
-			}
-			if (sdev->hdmi1_edid == NULL || count == 0)
-			{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
-				drm_connector_update_edid_property(connector, NULL);
-#else
-				drm_mode_connector_update_edid_property(connector, NULL);
-#endif
-				count = drm_add_modes_noedid(connector, 3840, 2160);
-				drm_set_preferred_mode(connector, fixed_width, fixed_height);
-				sdev->is_hdmi[1] = true;
-			}
-
+		if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIB) {
+			count = hdmi_get_edid_property(connector,
+						       sdev->hdmi1_edid,
+						       USE_HDMI1, INDEX_HDMI1,
+						       retry);
 		}
-		if(connector->connector_type == DRM_MODE_CONNECTOR_DVID)
-		{
-#if USE_I2C_ADAPTER
-read_again2:
-			sdev->hdmi2_edid = drm_get_edid(
-				connector, &smi_connector->adapter);
-			if ((sdev->m_connector & USE_HDMI2) && !sdev->hdmi2_edid && retry)
-			{
-				retry--;
-				printk("hdmi 2 iic resrt\n\n");
-				hw770_i2c_reset_busclear(INDEX_HDMI2);
-				goto read_again2;
-			}
-			if (sdev->hdmi2_edid)
-#else
-			ret = hw770_get_hdmi_edid(
-				2, (unsigned char *)sdev->hdmi2_edid);
-			if (ret)
-#endif
-			{
-				dbg_msg("HDMI2 get edid success.\n");
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
-				drm_connector_update_edid_property(connector, sdev->hdmi2_edid);
-#else
-				drm_mode_connector_update_edid_property(connector, sdev->hdmi2_edid);
-#endif			
-				count = drm_add_edid_modes(connector, sdev->hdmi2_edid);
-				sdev->is_hdmi[2] = drm_detect_hdmi_monitor(sdev->hdmi2_edid);
-				ddk770_HDMI_set_SCDC(2, (u8 *)sdev->hdmi2_edid);
-                dbg_msg("SM770 HDMI2 connector is %s\n",(sdev->is_hdmi[2] ? "HDMI monitor" : "DVI monitor"));
-			}
-			if (sdev->hdmi2_edid == NULL || count == 0)
-			{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
-				drm_connector_update_edid_property(connector, NULL);
-#else
-				drm_mode_connector_update_edid_property(connector, NULL);
-#endif
-				count = drm_add_modes_noedid(connector, 3840, 2160);
-				drm_set_preferred_mode(connector, fixed_width, fixed_height);
-				sdev->is_hdmi[2] = true;
-			}
+		if (connector->connector_type == DRM_MODE_CONNECTOR_DVID) {
+			count = hdmi_get_edid_property(connector,
+						       sdev->hdmi2_edid,
+						       USE_HDMI2, INDEX_HDMI2,
+						       retry);
 		}
 	}
-	
+
 	LEAVE(count);
 }
 
@@ -1647,6 +1571,7 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 	
 	if((sdev->specId == SPC_SM750) && (mode->clock >= 80000) && (sdev->m_connector == USE_DVI_VGA))
 		return MODE_NOMODE;
+
 	if(connector->connector_type == DRM_MODE_CONNECTOR_DVII){
 		if(mode->clock >= 200000)
 				return MODE_NOCLOCK;
@@ -1720,7 +1645,6 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 	void *edid_buf;
 #endif
 
-
 	if (sdev->specId == SPC_SM750)
 	{
 		if (connector->connector_type == DRM_MODE_CONNECTOR_DVII)
@@ -1778,7 +1702,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 					return connector_status_disconnected;
 			}
 
-			if (!drm_probe_ddc(&smi_connector->adapter))
+			if(!drm_probe_ddc(&smi_connector->adapter))
 			{
 				dbg_msg("detect CRT DO NOT connected.\n");
 				return connector_status_disconnected;
@@ -1814,7 +1738,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 			{
 				dbg_msg("detect DVI connected(GPIO30,31)\n");
 				sdev->m_connector =sdev->m_connector |USE_DVI;
-				return connector_status_connected;
+                return connector_status_connected;
 			}
 			else
 			{

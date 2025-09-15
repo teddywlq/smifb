@@ -1195,7 +1195,7 @@ void drm_set_preferred_mode(struct drm_connector *connector, int hpref, int vpre
 #endif
 
 static int hdmi_get_edid_property(struct drm_connector *connector,
-				  struct edid *hdmi_edid, int use_flag,
+				  struct edid **hdmi_edid, int use_flag,
 				  hdmi_index index, int retry)
 {
 	int count = 0;
@@ -1206,30 +1206,30 @@ static int hdmi_get_edid_property(struct drm_connector *connector,
 
 #if USE_I2C_ADAPTER
 read_again0:
-	hdmi_edid = drm_get_edid(connector, &smi_connector->adapter);
+	*hdmi_edid = drm_get_edid(connector, &smi_connector->adapter);
 
-	if ((sdev->m_connector & use_flag) && !hdmi_edid && retry) {
+	if ((sdev->m_connector & use_flag) && !(*hdmi_edid) && retry) {
 		retry--;
 		dbg_msg("HDMI_%d iic reset\n\n", index);
 		hw770_i2c_reset_busclear(index);
 		goto read_again0;
 	}
-	if (hdmi_edid)
+	if (*hdmi_edid)
 #else
-	int ret = hw770_get_hdmi_edid(index, (unsigned char *)hdmi_edid);
+	int ret = hw770_get_hdmi_edid(index, (unsigned char *)(*hdmi_edid));
 	if (ret)
 #endif
 	{
 		dbg_msg("HDMI_%d get edid success.\n", index);
-		drm_connector_update_edid_property(connector, hdmi_edid);
-		count = drm_add_edid_modes(connector, hdmi_edid);
-		sdev->is_hdmi[index] = drm_detect_hdmi_monitor(hdmi_edid);
-		ddk770_HDMI_set_SCDC(index, (u8 *)hdmi_edid);
+		drm_connector_update_edid_property(connector, *hdmi_edid);
+		count = drm_add_edid_modes(connector, *hdmi_edid);
+		sdev->is_hdmi[index] = drm_detect_hdmi_monitor(*hdmi_edid);
+		ddk770_HDMI_set_SCDC(index, (u8 *)(*hdmi_edid));
 		dbg_msg("SM770 HDMI_%d connector is %s\n", index,
 			(sdev->is_hdmi[index] ? "HDMI monitor" :
 						"DVI monitor"));
 	}
-	if (hdmi_edid == NULL || count == 0) {
+	if (*hdmi_edid == NULL || count == 0) {
 		drm_connector_update_edid_property(connector, NULL);
 		count = drm_add_modes_noedid(connector, 3840, 2160);
 		drm_set_preferred_mode(connector, fixed_width, fixed_height);
@@ -1525,19 +1525,19 @@ int smi_connector_get_modes(struct drm_connector *connector)
 		}
 		if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA) {
 			count = hdmi_get_edid_property(connector,
-						       sdev->hdmi0_edid,
+						       (struct edid **)(&sdev->hdmi0_edid),
 						       USE_HDMI0, INDEX_HDMI0,
 						       retry);
 		}
 		if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIB) {
 			count = hdmi_get_edid_property(connector,
-						       sdev->hdmi1_edid,
+						       (struct edid **)(&sdev->hdmi1_edid),
 						       USE_HDMI1, INDEX_HDMI1,
 						       retry);
 		}
 		if (connector->connector_type == DRM_MODE_CONNECTOR_DVID) {
 			count = hdmi_get_edid_property(connector,
-						       sdev->hdmi2_edid,
+						       (struct edid **)(&sdev->hdmi2_edid),
 						       USE_HDMI2, INDEX_HDMI2,
 						       retry);
 		}

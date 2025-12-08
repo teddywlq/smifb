@@ -325,12 +325,18 @@ static void smi_cursor_atomic_update(struct drm_plane *plane,struct drm_plane_st
 	{		
 		ddk770_enableCursor(disp_ctrl, 3);
 		width = hw770_get_current_mode_width(disp_ctrl);
-		if((x + CURSOR_WIDTH) >= width)
-			ddk770_setCursorPosition(disp_ctrl, x < 0 ? -x : x, y < 0 ? -y : y, y < 0 ? 1 : 0,
+		if ((x + CURSOR_WIDTH) >= width) {
+			ddk770_setCursorPosition(disp_ctrl, x < 0 ? -x : x,
+						 y < 0 ? -y : y, y < 0 ? 1 : 0,
 					 x < 0 ? 1 : 0, 0);
-		else
-			ddk770_setCursorPosition(disp_ctrl, x < 0 ? -x : x, y < 0 ? -y : y, y < 0 ? 1 : 0,
+		} else {
+			if (x == -CURSOR_WIDTH) {
+				return;
+			}
+			ddk770_setCursorPosition(disp_ctrl, x < 0 ? -x : x,
+						 y < 0 ? -y : y, y < 0 ? 1 : 0,
 					 x < 0 ? 1 : 0, 1);
+		}
 	}
 
 	//LEAVE();

@@ -1221,7 +1221,11 @@ read_again0:
 #endif
 	{
 		dbg_msg("HDMI_%d get edid success.\n", index);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))				
 		drm_connector_update_edid_property(connector, *hdmi_edid);
+#else
+		drm_mode_connector_update_edid_property(connector, *hdmi_edid);
+#endif	
 		count = drm_add_edid_modes(connector, *hdmi_edid);
 		sdev->is_hdmi[index] = drm_detect_hdmi_monitor(*hdmi_edid);
 		ddk770_HDMI_set_SCDC(index, (u8 *)(*hdmi_edid));
@@ -1230,7 +1234,11 @@ read_again0:
 						"DVI monitor"));
 	}
 	if (*hdmi_edid == NULL || count == 0) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 		drm_connector_update_edid_property(connector, NULL);
+#else
+		drm_mode_connector_update_edid_property(connector, NULL);
+#endif
 		count = drm_add_modes_noedid(connector, 3840, 2160);
 		drm_set_preferred_mode(connector, fixed_width, fixed_height);
 		sdev->is_hdmi[index] = true;

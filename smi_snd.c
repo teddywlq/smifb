@@ -44,6 +44,21 @@
 struct sm768chip *chip_irq_id=NULL;/*chip_irq_id is use for request and free irq*/
 int use_wm8978 = 0;
 
+static inline void memcpy32_fromio(void *dst, const void __iomem *src, int count)
+{
+	/* __ioread32_copy uses 32-bit count values so divide by 4 for
+	 * right count in words
+	 */
+	__ioread32_copy(dst, src, count / 4);
+}
+
+static inline void memcpy32_toio(void __iomem *dst, const void *src, int count)
+{
+	/* __iowrite32_copy uses 32-bit count values so divide by 4 for
+	 * right count in words
+	 */
+	__iowrite32_copy(dst, src, count / 4);
+}
 static int SMI_AudioInit(struct smi_device *sdev, unsigned long wordLength)
 {
 
@@ -622,7 +637,7 @@ static int snd_smi_play_copy_data(struct sm768chip *chip,int sramTxSection)
 		if (play_runtime->dma_area == NULL) 
 			return 0;
 
-		memcpy_toio(chip->pvReg + SRAM_OUTPUT_BASE + SRAM_SECTION_SIZE * sramTxSection, play_runtime->dma_area + chip->ppointer, P_PERIOD_BYTE);
+		memcpy32_toio(chip->pvReg + SRAM_OUTPUT_BASE + SRAM_SECTION_SIZE * sramTxSection, play_runtime->dma_area + chip->ppointer, P_PERIOD_BYTE);	
 		chip->ppointer+= P_PERIOD_BYTE;
 		chip->ppointer%= ((play_runtime->periods) * (P_PERIOD_BYTE));
 		snd_pcm_period_elapsed(play_substream);
@@ -647,7 +662,7 @@ static int snd_smi_capture_copy_data(struct sm768chip *chip,int sramTxSection)
 		if (capture_runtime->dma_area == NULL) 
 			return 0;
 
-		memcpy_fromio(capture_runtime->dma_area + chip->cpointer, chip->pvReg + SRAM_INPUT_BASE + SRAM_SECTION_SIZE * sramTxSection,  P_PERIOD_BYTE);
+		memcpy32_fromio(capture_runtime->dma_area + chip->cpointer, chip->pvReg + SRAM_INPUT_BASE + SRAM_SECTION_SIZE * sramTxSection,  P_PERIOD_BYTE);
 		chip->cpointer+= P_PERIOD_BYTE;
 		chip->cpointer%= ((capture_runtime->periods) * (P_PERIOD_BYTE));		
 		snd_pcm_period_elapsed(capture_substream);

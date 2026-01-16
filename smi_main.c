@@ -320,7 +320,7 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		EP_HDMI_Init(1);
 		EP_HDMI_Set_Video_Timing(1,1);
 #endif
-		
+	    smi_pwm_init(dev);
 	}
 	else if(cdev->specId == SPC_SM770){
 		ddk770_initChip();
@@ -448,6 +448,9 @@ int smi_driver_unload(struct drm_device *dev)
     }
 #endif
 
+	if(cdev->specId == SPC_SM768){
+		smi_pwm_remove(dev);
+	}
 	vfree(cdev->regsave);
 	kfree(cdev);
 	dev->dev_private = NULL;

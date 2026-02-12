@@ -1597,7 +1597,7 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 	}
 
 	}else{
-		if((mode->hdisplay > 3840) || (mode->vdisplay > 2160) || (mode->clock > 300000))
+		if((mode->hdisplay > 3840) || (mode->vdisplay > 2160) || (mode->clock > 600000))
 		return MODE_NOMODE;
 		if(mode->clock >=300000 && (count_set_bits(sdev->m_connector) > 2))  //SM770 can't support triple 4k@60hz
 			return MODE_NOCLOCK;

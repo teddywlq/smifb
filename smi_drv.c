@@ -44,7 +44,7 @@ MODULE_PARM_DESC(modeset, "Disable/Enable modesetting");
 module_param_named(modeset, smi_modeset, int, 0400);
 MODULE_PARM_DESC(bpp, "Max bits-per-pixel (default:32)");
 module_param_named(bpp, smi_bpp, int, 0400);
-MODULE_PARM_DESC(nopnp, "Force conncet to the monitor without monitor EDID (default:0) bit0:DVI,bit1:VGA,bit2:HDMI SM770: bit3-5 HDMI0-2, bit6-7 DP0-1");
+MODULE_PARM_DESC(nopnp, "Force connect to the monitor without monitor EDID (default:0) bit0:DVI,bit1:VGA,bit2:HDMI SM770: bit3-5 HDMI0-2, bit6-7 DP0-1");
 module_param_named(nopnp, force_connect, int, 0400);
 MODULE_PARM_DESC(lvds, "LVDS Channel, 0=disable 1=single channel, 2=dual channel (default:0)");
 module_param_named(lvds, lvds_channel, int, 0400);

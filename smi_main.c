@@ -320,6 +320,11 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		EP_HDMI_Init(1);
 		EP_HDMI_Set_Video_Timing(1,1);
 #endif
+
+#ifdef USE_LT8618
+		hw768_init_lt8618();
+#endif
+
 	    smi_pwm_init(dev);
 	}
 	else if(cdev->specId == SPC_SM770){
@@ -667,7 +672,7 @@ int smi_device_init(struct smi_device *cdev,
 	if (cdev->specId == SPC_SM750)
 		ddk750_set_mmio(cdev->rmmio, pdev->device, pdev->revision);
 	else if(cdev->specId == SPC_SM768)
-		ddk768_set_mmio(cdev->rmmio, pdev->device, pdev->revision);
+		ddk768_set_mmio(pdev , cdev->rmmio);
 	else if(cdev->specId == SPC_SM770)
 		ddk770_set_mmio(cdev->rmmio, pdev->device, pdev->revision);
 

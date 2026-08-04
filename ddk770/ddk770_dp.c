@@ -702,7 +702,7 @@ static void DP_CDR_Training(dp_index index)
 
     link_cfg[0] = 0;
 	link_cfg[1] = DP_DP_PHY108_SET_ANSI_8B10B;
-	DP_DPCD_Write(index, DP_PHY108, link_cfg, 2);
+	DP_DPCD_Write(index, DP_DOWNSPREAD_CTRL, link_cfg, 2);
 
     link_cfg[0] = DP_TRAINING_PATTERN_1; /* DP_TRAINING_PATTERN_SET */
 	DP_DPCD_Write(index, DP_TRAINING_PATTERN_SET, link_cfg, 1);

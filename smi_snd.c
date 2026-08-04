@@ -653,7 +653,8 @@ static int snd_smi_play_copy_data(struct sm768chip *chip, int sramTxSection)
 	memcpy32_toio(chip->pvReg + SRAM_OUTPUT_BASE + SRAM_SECTION_SIZE * sramTxSection,
 		      play_runtime->dma_area + chip->ppointer, P_PERIOD_BYTE);
 	chip->ppointer += P_PERIOD_BYTE;
-	chip->ppointer %= play_runtime->dma_bytes;
+	if (chip->ppointer >= play_runtime->dma_bytes)
+		chip->ppointer -= play_runtime->dma_bytes;
 	snd_pcm_period_elapsed(play_substream);
 	return 0;
 }
@@ -687,7 +688,8 @@ static int snd_smi_capture_copy_data(struct sm768chip *chip, int sramTxSection)
 			chip->pvReg + SRAM_INPUT_BASE + SRAM_SECTION_SIZE * sramTxSection,
 			P_PERIOD_BYTE);
 	chip->cpointer += P_PERIOD_BYTE;
-	chip->cpointer %= capture_runtime->dma_bytes;
+	if (chip->cpointer >= capture_runtime->dma_bytes)
+		chip->cpointer -= capture_runtime->dma_bytes;
 	snd_pcm_period_elapsed(capture_substream);
 	return 0;
 }

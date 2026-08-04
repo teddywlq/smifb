@@ -6,16 +6,24 @@
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
+#include "../smi_drv.h"
 
+struct pci_dev;
 
+#if SM768_REG_EXTERNAL
 
-#define PEEK32(addr) readl((addr)+mmio768)
-#define POKE32(addr,data) writel((data),(addr)+mmio768)
+unsigned int peekRegisterDWord_External(unsigned int addr);
+void pokeRegisterDWord_External(unsigned int addr, unsigned int data);
 
+#define peekRegisterDWord(addr) peekRegisterDWord_External(addr)
+#define pokeRegisterDWord(addr, data) pokeRegisterDWord_External((addr), (data))
+
+#else
 
 #define peekRegisterDWord(addr) readl((addr)+mmio768)
 #define pokeRegisterDWord(addr,data) writel((data),(addr)+mmio768)
 
+#endif
 #define peekRegisterByte(addr) readb((addr)+mmio768)
 #define pokeRegisterByte(addr,data) writeb((data),(addr)+mmio768)
 
@@ -25,7 +33,7 @@
 #define SM768_PCI_ALLOC_MEMORY_SIZE     (128*1024*1024)
 
 
-void ddk768_set_mmio(volatile unsigned char * addr,unsigned short devId,char revId);
+void ddk768_set_mmio(struct pci_dev *dev, volatile unsigned char * addr);
 
 extern volatile unsigned  char __iomem * mmio768;
 

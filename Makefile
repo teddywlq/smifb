@@ -34,6 +34,10 @@ ${Driver}-y += ddk768/wm8978.o
 ${Driver}-y += ddk770/ddk770_wm8978.o
 endif
 
+ifeq ($(lt8618),1)
+EXTRA_CFLAGS += -DUSE_LT8618
+smifb-y += ddk768/lt8618.o
+endif
 # for 770:
 ${Driver}-objs += ddk770/ddk770_help.o ddk770/ddk770_ddkdebug.o ddk770/ddk770_helper.o \
 ddk770/ddk770_os.o ddk770/ddk770_hardware.o ddk770/ddk770_clock.o ddk770/ddk770_power.o \

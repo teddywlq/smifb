@@ -290,9 +290,9 @@ void
 smi_fb_output_poll_changed(struct smi_device *sdev)
 {
 
-	if (sdev->mode_info.gfbdev)
+	if (sdev->mode_info.gfbdev){
 		drm_fb_helper_hotplug_event(&sdev->mode_info.gfbdev->helper);
-	
+	}		
 }
 
 

@@ -42,7 +42,12 @@
 #endif
 
 struct sm768chip *chip_irq_id=NULL;/*chip_irq_id is use for request and free irq*/
-int use_wm8978 = 0;
+
+static bool smi_audio_capture_enabled(void)
+{
+	return audio_en == SMI_AUDIO_WM8978 ||
+	       audio_en == SMI_AUDIO_UDA1345;
+}
 
 static inline void memcpy32_fromio(void *dst, const void __iomem *src, int count)
 {
@@ -65,10 +70,14 @@ static int SMI_AudioInit(struct smi_device *sdev, unsigned long wordLength)
 
 	int sample_rate = 48000;
 
-	// Init audio codec
+	// Init audio codec. HDMI/DP audio does not use an external codec.
 	if(sdev->specId == SPC_SM768)
 	{
-		if(use_wm8978)
+		if (audio_en == SMI_AUDIO_HDMI)
+		{
+			printk("Use HDMI Audio\n");
+		}
+		else if (audio_en == SMI_AUDIO_WM8978)
 		{
 		printk("Use WM8978 Codec\n");
 		if (WM8978_Init())
@@ -78,7 +87,7 @@ static int SMI_AudioInit(struct smi_device *sdev, unsigned long wordLength)
 			
 		}
 		}
-		else
+		else if (audio_en == SMI_AUDIO_UDA1345)
 		{
 		printk("Use UDA1345 Codec\n");
 		if(uda1345_init())
@@ -101,7 +110,9 @@ static int SMI_AudioInit(struct smi_device *sdev, unsigned long wordLength)
 	}
 	else if(sdev->specId == SPC_SM770)
 	{
-		if(use_wm8978){
+		if (audio_en == SMI_AUDIO_HDMI) {
+			printk("Use HDMI/DP Audio\n");
+		} else if (audio_en == SMI_AUDIO_WM8978) {
 			printk("Use ddk770_WM8978 Codec\n");
 			if (ddk770_WM8978_Init())
 			{			
@@ -125,12 +136,7 @@ static int SMI_AudioStart(struct smi_device *sdev)
 {
 	if(sdev->specId == SPC_SM768)
 	{
-		if(use_wm8978)
-		{
-
-		}
-		else
-	
+		if (audio_en == SMI_AUDIO_UDA1345)
 		{
 	    uda1345_setpower(ADCOFF_DACON);
 		uda1345_setmute(NO_MUTE);
@@ -156,11 +162,7 @@ static int SMI_AudioStop(struct smi_device *sdev)
 
     if(sdev->specId == SPC_SM768)
 	{
-		if(use_wm8978)
-		{
-					
-		}
-		else
+		if (audio_en == SMI_AUDIO_UDA1345)
 		{
 		uda1345_setmute(MUTE);
 		uda1345_setpower(ADCOFF_DACOFF);
@@ -186,11 +188,11 @@ static int SMI_AudioDeinit(struct smi_device *sdev)
 	{
 	iisStop();
 
-		if (use_wm8978)
+		if (audio_en == SMI_AUDIO_WM8978)
 		{
 		WM8978_DeInit();
 		}
-	else
+	else if (audio_en == SMI_AUDIO_UDA1345)
 		{
 		uda1345_deinit();
 		}
@@ -201,7 +203,7 @@ static int SMI_AudioDeinit(struct smi_device *sdev)
 	}
 	else if (sdev->specId == SPC_SM770)
 	{
-		if (use_wm8978)
+		if (audio_en == SMI_AUDIO_WM8978)
 			ddk770_WM8978_DeInit();
 
 		hw770_AudioDeinit();
@@ -266,19 +268,19 @@ static int snd_falconi2s_put_hw_play_volume(struct snd_kcontrol *kcontrol,
 
 		if(chip->chipId == SPC_SM768)
 		{
-			if(use_wm8978)
+			if (audio_en == SMI_AUDIO_WM8978)
 			{	
 			WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
 			WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
 			}
-			else
+			else if (audio_en == SMI_AUDIO_UDA1345)
 			{
 			uda1345_setvolume(VolAuDrvToCodec(vol));
 		}
 		}	
 		else if(chip->chipId == SPC_SM770)
 		{
-			if(use_wm8978){
+			if (audio_en == SMI_AUDIO_WM8978) {
 				ddk770_WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
 				ddk770_WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
 			}
@@ -317,19 +319,19 @@ static int snd_falconi2s_put_hw_capture_volume(struct snd_kcontrol *kcontrol,
 
 		if(chip->chipId == SPC_SM768)
 		{
-			if(use_wm8978)
+			if (audio_en == SMI_AUDIO_WM8978)
 			{
 					WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
 					WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
 			}
-			else
+			else if (audio_en == SMI_AUDIO_UDA1345)
 			{
 					uda1345_setvolume(VolAuDrvToCodec(vol));
 		}
 	    }
 		else if(chip->chipId == SPC_SM770)
 		{
-			if(use_wm8978){
+			if (audio_en == SMI_AUDIO_WM8978) {
 				ddk770_WM8978_HPvol_Set(VolAuDrvToCodec(vol), VolAuDrvToCodec(vol));
 				ddk770_WM8978_SPKvol_Set(VolAuDrvToCodec(vol));
 			}
@@ -716,7 +718,8 @@ static irqreturn_t snd_smi770_interrupt(int irq, void *dev_id)
 	sramTxSection = (ddk770_iisDmaPointer() >= 255) ? 0 : 1;
 
 	snd_smi_play_copy_data(chip, sramTxSection);
-	snd_smi_capture_copy_data(chip, sramTxSection);
+	if (smi_audio_capture_enabled())
+		snd_smi_capture_copy_data(chip, sramTxSection);
 
 	return IRQ_HANDLED;
 }
@@ -743,7 +746,8 @@ static irqreturn_t snd_smi_interrupt(int irq, void *dev_id)
 	sramTxSection = (iisDmaPointer() >= 255) ? 0 : 1;
 
 	snd_smi_play_copy_data(chip, sramTxSection);
-	snd_smi_capture_copy_data(chip, sramTxSection);
+	if (smi_audio_capture_enabled())
+		snd_smi_capture_copy_data(chip, sramTxSection);
 
 	return IRQ_HANDLED;
 }
@@ -856,6 +860,7 @@ static int snd_falconi2s_create(struct snd_card *card,
 int smi_audio_init(struct drm_device *dev)
 {
 	int idx, err;
+	int capture_count = smi_audio_capture_enabled() ? 1 : 0;
 	struct pci_dev *pdev;
 	struct smi_device *sdev = dev->dev_private;
 	struct snd_pcm *pcm;
@@ -865,11 +870,6 @@ int smi_audio_init(struct drm_device *dev)
 
 	pdev = to_pci_dev(dev->dev);
 
-	if(audio_en == 1)
-		use_wm8978 = 0;
-	else if(audio_en == 2)
-		use_wm8978 = 1;
-	
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
 	err = snd_card_new(&pdev->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1, THIS_MODULE, 0, &card); 
 #else
@@ -893,15 +893,20 @@ int smi_audio_init(struct drm_device *dev)
 	strcpy(card->shortname, "smi-audio");
 	strcpy(card->longname, "SiliconMotion Audio");
 
-	snd_pcm_new(card,"smiaudio_pcm",0,1,1,&pcm);
+	err = snd_pcm_new(card, "smiaudio_pcm", 0, 1, capture_count, &pcm);
+	if (err < 0) {
+		snd_card_free(card);
+		return err;
+	}
 	pcm->private_data = chip;
 
       
 	/* set operators */
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK,
                           &snd_falconi2s_playback_ops);
-	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE,
-                          &snd_falconi2s_capture_ops);
+	if (capture_count)
+		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE,
+				&snd_falconi2s_capture_ops);
 	  
 	snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_DEV,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)
@@ -913,7 +918,7 @@ int smi_audio_init(struct drm_device *dev)
 
 	strcpy(card->mixername, "SiliconMotion Audio Mixer Control");
 	
-	for (idx = 0; idx < ARRAY_SIZE(falconi2s_vol); idx++) {
+	for (idx = 0; idx < (capture_count ? ARRAY_SIZE(falconi2s_vol) : 1); idx++) {
 		if ((err = snd_ctl_add(card,snd_ctl_new1(&falconi2s_vol[idx], chip))) < 0)
 		{
 			return err;
@@ -972,5 +977,6 @@ void smi_audio_suspend(struct smi_device *sdev)
 	SMI_AudioStop(sdev);
 	SMI_AudioDeinit(sdev);
 }
+
 
 

@@ -240,7 +240,24 @@ smi_user_framebuffer_create(struct drm_device *dev,
 static void smi_output_poll_changed(struct drm_device *dev)
 {
 	struct smi_device *sdev = dev->dev_private;
+	struct drm_connector *connector;
+	struct drm_connector_list_iter conn_iter;
+	struct drm_crtc *crtc;
 	smi_fb_output_poll_changed(sdev);
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
+		if(connector->connector_type != DRM_MODE_CONNECTOR_DisplayPort && connector->connector_type != DRM_MODE_CONNECTOR_eDP){
+			if(connector->status == connector_status_connected){
+			if(connector->encoder == NULL)
+				continue;
+			crtc = connector->encoder->crtc;
+			printk("->get connector plug in \n");
+			if(crtc != NULL)
+				hw770_hdmi_interrupt_enable(crtc->index,1);
+			}
+		}
+	}
+	drm_connector_list_iter_end(&conn_iter);
 }
 
 

@@ -60,7 +60,7 @@ static mode_parameter_t convert_drm_mode_to_ddk_mode(struct drm_display_mode mod
     modeP.vertical_frequency = 0;
     
     /* Clock Phase. This clock phase only applies to Panel. */
-	modeP.clock_phase_polarity = NEG;
+    modeP.clock_phase_polarity = POS;
 
 	return modeP;
 }
@@ -231,18 +231,24 @@ int hw768_set_hdmi_mode(logicalMode_t *pLogicalMode, struct drm_display_mode mod
 
 int hw768_en_dis_interrupt(int status, int pipe)
 {
-	if(status == 0)
-	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL0_CTRL) ? 
-		FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, DISABLE):
-		FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, DISABLE));
-	}
+	unsigned long mask;
+
+	if (pipe != CHANNEL0_CTRL && pipe != CHANNEL1_CTRL)
+		return -EINVAL;
+
+	mask = peekRegisterDWord(INT_MASK);
+	if (pipe == CHANNEL0_CTRL) {
+		if (status)
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, ENABLE);
 	else
-	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL1_CTRL) ? 
-		FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, ENABLE):
-		FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, ENABLE));
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, DISABLE);
+	} else {
+		if (status)
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, ENABLE);
+		else
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, DISABLE);
 	}
+	pokeRegisterDWord(INT_MASK, mask);
 	return 0;
 }
 void hw768_HDMI_Enable_Output(void)
@@ -311,18 +317,15 @@ int hw768_check_vsync_interrupt(int path)
 void hw768_clear_vsync_interrupt(int path)
 {
 	
-	unsigned long value;
 	
-	value = peekRegisterDWord(RAW_INT);
 
 	if (path == CHANNEL0_CTRL)
-	{
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, CHANNEL0_VSYNC, CLEAR));
-	}
-	else
-	{
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, CHANNEL1_VSYNC, CLEAR));
-	}
+		/* RAW_INT is write-one-to-clear; acknowledge only this source. */
+		pokeRegisterDWord(RAW_INT,
+				  FIELD_SET(0, RAW_INT, CHANNEL0_VSYNC, CLEAR));
+	else if (path == CHANNEL1_CTRL)
+		pokeRegisterDWord(RAW_INT,
+				  FIELD_SET(0, RAW_INT, CHANNEL1_VSYNC, CLEAR));
 }
 
 long hw768_setMode(logicalMode_t *pLogicalMode, struct drm_display_mode mode)

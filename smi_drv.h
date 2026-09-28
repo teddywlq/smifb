@@ -33,6 +33,7 @@
 
 #include <linux/i2c-algo-bit.h>
 #include <linux/i2c.h>
+#include <linux/workqueue.h>
 
 #define DRIVER_AUTHOR		"SiliconMotion"
 
@@ -72,6 +73,7 @@ enum smi_audio_mode {
 
 extern int smi_pat;
 extern int smi_debug;
+extern int use_vblank;
 
 #define PFX "[smi] "
 extern int smi_indent;
@@ -180,6 +182,14 @@ struct smi_crtc {
 	bool				enabled;
 	int crtc_index;
 	int CursorOffset;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+	struct drm_pending_vblank_event *flip_event;
+	struct drm_framebuffer *flip_old_fb;
+	struct work_struct flip_work;
+	bool flip_pending;
+	bool flip_armed;
+	int flip_pipe;
+#endif
 };
 
 #define to_smi_crtc(x) container_of(x, struct smi_crtc, base)
@@ -393,6 +403,9 @@ void smi_driver_irq_uninstall(struct drm_device *dev);
 irqreturn_t smi_driver_irq_handler(int irq, void *arg);
 #else
 irqreturn_t smi_driver_irq_handler(DRM_IRQ_ARGS);
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+void smi_crtc_flip_complete(struct drm_device *dev, int pipe);
 #endif
 				/* smi_kms.c */
 int smi_driver_load(struct drm_device *dev, unsigned long flags);

@@ -244,6 +244,8 @@ static void smi_output_poll_changed(struct drm_device *dev)
 	struct drm_connector_list_iter conn_iter;
 	struct drm_crtc *crtc;
 	smi_fb_output_poll_changed(sdev);
+	if (sdev->specId != SPC_SM770)
+		return;
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(connector, &conn_iter) {
 		if(connector->connector_type != DRM_MODE_CONNECTOR_DisplayPort && connector->connector_type != DRM_MODE_CONNECTOR_eDP){
@@ -367,24 +369,29 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		goto out;
 	}
 
-#if 0
-	drm_vblank_init(dev, dev->mode_config.num_crtc);
-
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
-	r = drm_irq_install(dev, dev->pdev->irq);
-#else
-	r = drm_irq_install(dev);
-#endif
-	if (r)
-		DRM_ERROR("install irq failed , ret = %d\n", r);
-#endif
-		
 	dev->mode_config.funcs = (void *)&smi_mode_funcs;
 	r = smi_modeset_init(cdev);
 	if (r){
 		dev_err(&dev->pdev->dev, "Fatal error during modeset init: %d\n", r);
 		goto out;
+	}
+
+	if (use_vblank) {
+		r = drm_vblank_init(dev, dev->mode_config.num_crtc);
+		if (r) {
+			DRM_ERROR("vblank init failed, ret = %d\n", r);
+			goto out;
+		}
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
+		r = drm_irq_install(dev, dev->pdev->irq);
+#else
+		r = drm_irq_install(dev);
+#endif
+		if (r) {
+			DRM_ERROR("install irq failed, ret = %d\n", r);
+			goto out;
+		}
 	}
 #ifdef ENABLE_HDMI_IRQ
 	if (cdev->specId == SPC_SM770)
@@ -433,7 +440,19 @@ int smi_driver_unload(struct drm_device *dev)
 
 {
 	struct smi_device *cdev = dev->dev_private;
+	struct drm_crtc *crtc;
+	unsigned int pipe = 0;
 
+	if (dev->irq_enabled && dev->num_crtcs) {
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
+			drm_crtc_vblank_off(crtc);
+#else
+			drm_vblank_off(dev, pipe);
+#endif
+			pipe++;
+		}
+	}
 	if (dev->irq_enabled)
 		drm_irq_uninstall(dev);
 	/* Disable *all* interrupts */
@@ -445,11 +464,6 @@ int smi_driver_unload(struct drm_device *dev)
 		ddk770_disable_IntMask();
 	}
 
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && \
-	(LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)))
-		drm_vblank_cleanup(dev);
-#endif
-
 	if (cdev == NULL)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 		return;
@@ -458,6 +472,11 @@ int smi_driver_unload(struct drm_device *dev)
 #endif
 
 	smi_modeset_fini(cdev);
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)) && \
+	(LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)))
+	if (use_vblank && dev->num_crtcs)
+		drm_vblank_cleanup(dev);
+#endif
 	smi_mm_fini(cdev);
 	smi_device_fini(cdev);
 

@@ -245,43 +245,46 @@ int hw770_set_dp_mode(logicalMode_t *pLogicalMode, struct drm_display_mode mode,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
 int hw770_en_dis_interrupt(int status, int pipe)
 {
-    int channel_mask = 0;
+    unsigned long mask = peekRegisterDWord(INT_MASK);
 
     switch (pipe) {
         case CHANNEL0_CTRL:
-            channel_mask = (status == 0) ? FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, DISABLE) :
-                                            FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, ENABLE);
+            mask = (status == 0) ? FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, DISABLE) :
+                                   FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, ENABLE);
             break;
         case CHANNEL1_CTRL:
-            channel_mask = (status == 0) ? FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, DISABLE) :
-                                            FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, ENABLE);
+            mask = (status == 0) ? FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, DISABLE) :
+                                   FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, ENABLE);
             break;
         case CHANNEL2_CTRL:
-            channel_mask = (status == 0) ? FIELD_SET(0, INT_MASK, CHANNEL2_VSYNC, DISABLE) :
-                                            FIELD_SET(0, INT_MASK, CHANNEL2_VSYNC, ENABLE);
+            mask = (status == 0) ? FIELD_SET(mask, INT_MASK, CHANNEL2_VSYNC, DISABLE) :
+                                   FIELD_SET(mask, INT_MASK, CHANNEL2_VSYNC, ENABLE);
             break;
         default:
             return -1;
     }
-    pokeRegisterDWord(INT_MASK, channel_mask);
+    pokeRegisterDWord(INT_MASK, mask);
 
     return 0;
 }
 #else
 int hw770_en_dis_interrupt(int status)
 	{
+		unsigned long mask = peekRegisterDWord(INT_MASK);
+
 		if(status == 0)
 		{
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL2_VSYNC, DISABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, DISABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, DISABLE)); 
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL2_VSYNC, DISABLE);
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, DISABLE);
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, DISABLE);
 		}
 		else
 		{
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL2_VSYNC, ENABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, ENABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, ENABLE));  
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL2_VSYNC, ENABLE);
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, ENABLE);
+			mask = FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, ENABLE);
 		}
+		pokeRegisterDWord(INT_MASK, mask);
 		return 0;
 	}
 
@@ -389,22 +392,17 @@ int hw770_check_vsync_interrupt(int path)
 
 void hw770_clear_vsync_interrupt(int path)
 {
-	
-	unsigned long value;
-	
-	value = peekRegisterDWord(RAW_INT);
-
 	if (path == CHANNEL0_CTRL)
 	{
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, CHANNEL0_VSYNC, CLEAR));
+		pokeRegisterDWord(RAW_INT, FIELD_SET(0, RAW_INT, CHANNEL0_VSYNC, CLEAR));
 	}
 	else if (path == CHANNEL1_CTRL)
 	{
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, CHANNEL1_VSYNC, CLEAR));
+		pokeRegisterDWord(RAW_INT, FIELD_SET(0, RAW_INT, CHANNEL1_VSYNC, CLEAR));
 	}
-	else
+	else if (path == CHANNEL2_CTRL)
 	{
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, CHANNEL2_VSYNC, CLEAR));
+		pokeRegisterDWord(RAW_INT, FIELD_SET(0, RAW_INT, CHANNEL2_VSYNC, CLEAR));
 	}
 }
 

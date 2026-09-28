@@ -25,6 +25,12 @@
 #include "ddk768/ddk768_hdmi.h"
 #include "ddk770/ddk770_hdmi.h"
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+long isCurrentDisplayPending(disp_control_t dispControl);
+long isDisplayBasePending(disp_control_t dispControl);
+long ddk770_isDisplayBasePending(disp_control_t dispControl);
+#endif
+
 #define MAX_COLOR_LUT_ENTRIES 256
 
 #if 0
@@ -398,14 +404,10 @@ static int smi_crtc_do_set_base(struct drm_crtc *crtc,
 		hw770_hdmi_interrupt_enable(dst_ctrl,1);
 	LEAVE(0);
 }
-static int smi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
-			     struct drm_framebuffer *old_fb)
+static int smi_crtc_display_ctrl(struct drm_crtc *crtc)
 {
-
 	struct smi_device *sdev = crtc->dev->dev_private;
-	int i, ctrl_index, dst_ctrl, ret;
-	ENTER();
-	ret = 0;
+	int i, ctrl_index, dst_ctrl;
 	ctrl_index = 0;
 	dst_ctrl = 0;
 
@@ -432,7 +434,17 @@ static int smi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 		dst_ctrl = (disp_control_t)smi_encoder_crtc_index_changed(ctrl_index);
 	}
 
-	dbg_msg("set base: dst[%d], con[%d]\n", dst_ctrl, ctrl_index);
+	return dst_ctrl;
+}
+
+static int smi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
+			     struct drm_framebuffer *old_fb)
+{
+	int dst_ctrl = smi_crtc_display_ctrl(crtc);
+	int ret;
+	ENTER();
+
+	dbg_msg("set base: dst[%d]\n", dst_ctrl);
 
 	ret = smi_crtc_do_set_base(crtc, old_fb, x, y, 0, dst_ctrl);
 	LEAVE(ret);
@@ -756,6 +768,67 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 }
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
 	
+static void smi_crtc_flip_work(struct work_struct *work)
+{
+	struct smi_crtc *smi_crtc = container_of(work, struct smi_crtc, flip_work);
+	struct drm_framebuffer *old_fb = smi_crtc->flip_old_fb;
+	struct smi_bo *bo;
+	unsigned long flags;
+
+	if (old_fb) {
+		bo = gem_to_smi_bo(to_smi_framebuffer(old_fb)->obj);
+		if (!smi_bo_reserve(bo, false)) {
+			smi_bo_unpin(bo);
+			smi_bo_unreserve(bo);
+		} else {
+			DRM_ERROR("failed to reserve flipped-out framebuffer\n");
+		}
+		drm_framebuffer_unreference(old_fb);
+		smi_crtc->flip_old_fb = NULL;
+	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+	drm_crtc_vblank_put(&smi_crtc->base);
+#else
+	drm_vblank_put(smi_crtc->base.dev, smi_crtc->flip_pipe);
+#endif
+	spin_lock_irqsave(&smi_crtc->base.dev->event_lock, flags);
+	smi_crtc->flip_pending = false;
+	spin_unlock_irqrestore(&smi_crtc->base.dev->event_lock, flags);
+}
+
+void smi_crtc_flip_complete(struct drm_device *dev, int pipe)
+{
+	struct drm_crtc *crtc;
+	struct smi_crtc *smi_crtc;
+	struct smi_device *sdev = dev->dev_private;
+	unsigned long flags;
+	bool pending;
+
+	if (sdev->specId == SPC_SM750)
+		pending = (isCurrentDisplayPending(pipe) == 0);
+	else if (sdev->specId == SPC_SM768)
+		pending = isDisplayBasePending(pipe);
+	else
+		pending = ddk770_isDisplayBasePending(pipe);
+	if (pending)
+		return;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		smi_crtc = to_smi_crtc(crtc);
+		if (!smi_crtc->flip_pending || !smi_crtc->flip_armed ||
+		    smi_crtc->flip_pipe != pipe)
+			continue;
+		if (smi_crtc->flip_event) {
+			drm_crtc_send_vblank_event(crtc, smi_crtc->flip_event);
+			smi_crtc->flip_event = NULL;
+		}
+		smi_crtc->flip_armed = false;
+		schedule_work(&smi_crtc->flip_work);
+	}
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+}
+
 #if	(LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0))
 
 int smi_crtc_page_flip(struct drm_crtc *crtc,struct drm_framebuffer *fb,
@@ -766,18 +839,67 @@ int smi_crtc_page_flip(struct drm_crtc *crtc,struct drm_framebuffer *fb,
 #endif
 {	
 	struct drm_device *dev = crtc->dev;
-	unsigned long flags;
+	struct smi_crtc *smi_crtc = to_smi_crtc(crtc);
 	struct drm_framebuffer *old_fb = crtc->primary->fb;
-	
-	smi_crtc_mode_set_base(crtc, 0, 0, old_fb);
-	
+	unsigned long flags;
+	int pipe = smi_crtc_display_ctrl(crtc);
+	int ret;
+	bool same_bo;
+
+	if (!old_fb || !crtc->enabled || !dev->irq_enabled)
+		return -EINVAL;
+	same_bo = to_smi_framebuffer(old_fb)->obj ==
+		to_smi_framebuffer(fb)->obj;
 	spin_lock_irqsave(&dev->event_lock, flags);
-	if (event)
-			drm_crtc_send_vblank_event(crtc, event);
+	if (smi_crtc->flip_pending) {
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+		return -EBUSY;
+	}
 	spin_unlock_irqrestore(&dev->event_lock, flags);
-	
+
+	if (old_fb == fb && !event)
+		return 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+	ret = drm_crtc_vblank_get(crtc);
+#else
+	ret = drm_vblank_get(dev, pipe);
+#endif
+	if (ret)
+		return ret;
+	if (!same_bo)
+		drm_framebuffer_reference(old_fb);
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	smi_crtc->flip_pending = true;
+	smi_crtc->flip_armed = false;
+	smi_crtc->flip_event = event;
+	smi_crtc->flip_old_fb = same_bo ? NULL : old_fb;
+	smi_crtc->flip_pipe = pipe;
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
 	crtc->primary->fb = fb;
-	
+	if (old_fb != fb) {
+		ret = smi_crtc_mode_set_base(crtc, 0, 0, NULL);
+		if (ret) {
+			crtc->primary->fb = old_fb;
+			spin_lock_irqsave(&dev->event_lock, flags);
+			smi_crtc->flip_pending = false;
+			smi_crtc->flip_event = NULL;
+			smi_crtc->flip_old_fb = NULL;
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+			if (!same_bo)
+				drm_framebuffer_unreference(old_fb);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+			drm_crtc_vblank_put(crtc);
+#else
+			drm_vblank_put(dev, pipe);
+#endif
+			return ret;
+		}
+	}
+	spin_lock_irqsave(&dev->event_lock, flags);
+	smi_crtc->flip_armed = true;
+	spin_unlock_irqrestore(&dev->event_lock, flags);
 	return 0;
 }
 
@@ -790,6 +912,14 @@ int smi_crtc_page_flip(struct drm_crtc *crtc,struct drm_framebuffer *fb,
  */
 static void smi_crtc_prepare(struct drm_crtc *crtc)
 {
+	if (!crtc->dev->irq_enabled || !crtc->dev->num_crtcs)
+		return;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
+	drm_crtc_vblank_off(crtc);
+#else
+	drm_vblank_off(crtc->dev, to_smi_crtc(crtc)->crtc_index);
+#endif
 }
 
 /*
@@ -798,12 +928,34 @@ static void smi_crtc_prepare(struct drm_crtc *crtc)
  */
 static void smi_crtc_commit(struct drm_crtc *crtc)
 {
+	if (!crtc->dev->irq_enabled || !crtc->dev->num_crtcs)
+		return;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
+	drm_crtc_vblank_on(crtc);
+#else
+	drm_vblank_on(crtc->dev, to_smi_crtc(crtc)->crtc_index);
+#endif
 }
 
 /* Simple cleanup function */
 static void smi_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct smi_crtc *smi_crtc = to_smi_crtc(crtc);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+	unsigned long flags;
+
+	spin_lock_irqsave(&crtc->dev->event_lock, flags);
+	if (smi_crtc->flip_pending && smi_crtc->flip_armed) {
+		if (smi_crtc->flip_event)
+			drm_crtc_send_vblank_event(crtc, smi_crtc->flip_event);
+		smi_crtc->flip_event = NULL;
+		smi_crtc->flip_armed = false;
+		schedule_work(&smi_crtc->flip_work);
+	}
+	spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
+	flush_work(&smi_crtc->flip_work);
+#endif
 
 	drm_crtc_cleanup(crtc);
 	kfree(smi_crtc);
@@ -849,6 +1001,9 @@ static struct smi_crtc * smi_crtc_init(struct drm_device *dev, int crtc_id)
 			      GFP_KERNEL);
  	if (smi_crtc == NULL)
 		return NULL;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+	INIT_WORK(&smi_crtc->flip_work, smi_crtc_flip_work);
+#endif
 	
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0))
 	primary = smi_plane_init(cdev, 1 << crtc_id, DRM_PLANE_TYPE_PRIMARY);
@@ -2061,6 +2216,7 @@ static const struct drm_connector_funcs smi_vga_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = smi_connector_destroy,
 };
+
 static struct drm_connector *smi_connector_init(struct drm_device *dev, int index)
 {
 	struct drm_connector *connector;

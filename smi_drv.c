@@ -29,6 +29,7 @@ int hwi2c_en = 0;
 int swcur_en = 0;
 int edid_mode = 1;
 int smi_debug = 0;
+int use_vblank = 0;
 int lcd_scale = 0;
 int clk_phase = -1;
 
@@ -63,6 +64,8 @@ MODULE_PARM_DESC(edidmode, "Use Monitor EDID mode timing, 0 = Driver build-in mo
 module_param_named(edidmode, edid_mode, int, 0400);
 MODULE_PARM_DESC(debug, "Driver debug log enable, 0 = disable 1 = enable (default:0)");
 module_param_named(debug, smi_debug, int, 0400);
+MODULE_PARM_DESC(vblank, "Use DRM vblank, 0 = disable 1 = enable (default:0)");
+module_param_named(vblank, use_vblank, int, 0400);
 MODULE_PARM_DESC(lcdscale, "LCD(LVDS) scale  enable, 0 = disable 1 = enable (default:0)");
 module_param_named(lcdscale, lcd_scale, int, 0400);
 MODULE_PARM_DESC(clkphase, "Panel Mode Clock phase, -1 = Use Mode table (Default)  0 = Negative 1 = Postive");
@@ -346,15 +349,24 @@ static int smi_pm_poweroff(struct device *dev)
 static int smi_enable_vblank(struct drm_device *dev, unsigned int pipe)
 {
 	struct smi_device *sdev = dev->dev_private;
+	int ret;
 	
 	if (sdev->specId == SPC_SM750) {
-		hw750_en_dis_interrupt(1, pipe);
+		hw750_en_dis_interrupt(0, pipe);
+		hw750_clear_vsync_interrupt(pipe);
+		ret = hw750_en_dis_interrupt(1, pipe);
 	} else if (sdev->specId == SPC_SM768) {
-		hw768_en_dis_interrupt(1, pipe);
+		hw768_en_dis_interrupt(0, pipe);
+		hw768_clear_vsync_interrupt(pipe);
+		ret = hw768_en_dis_interrupt(1, pipe);
 	}else if (sdev->specId == SPC_SM770) {
-		hw770_en_dis_interrupt(1, pipe);
+		hw770_en_dis_interrupt(0, pipe);
+		hw770_clear_vsync_interrupt(pipe);
+		ret = hw770_en_dis_interrupt(1, pipe);
+	}else {
+		return -ENODEV;
 	}
-	return 0;
+	return ret;
 }
 
 
@@ -374,11 +386,31 @@ static void smi_disable_vblank(struct drm_device *dev, unsigned int pipe)
 
 static void smi_irq_preinstall(struct drm_device *dev)
 {
-	//To Do....
-	/* Disable *all* interrupts */
+	struct smi_device *sdev = dev->dev_private;
 
-	/* Clear bits if they're already high */
 
+	if (sdev->specId == SPC_SM750) {
+		hw750_en_dis_interrupt(0, CHANNEL0_CTRL);
+		hw750_en_dis_interrupt(0, CHANNEL1_CTRL);
+
+		hw750_clear_vsync_interrupt(CHANNEL0_CTRL);
+		hw750_clear_vsync_interrupt(CHANNEL1_CTRL);
+	
+	} else if (sdev->specId == SPC_SM768) {
+		hw768_en_dis_interrupt(0, CHANNEL0_CTRL);
+		hw768_en_dis_interrupt(0, CHANNEL1_CTRL);
+
+		hw768_clear_vsync_interrupt(CHANNEL0_CTRL);
+		hw768_clear_vsync_interrupt(CHANNEL1_CTRL);
+	}else if (sdev->specId == SPC_SM770) {
+		hw770_en_dis_interrupt(0, CHANNEL0_CTRL);
+		hw770_en_dis_interrupt(0, CHANNEL1_CTRL);
+		hw770_en_dis_interrupt(0, CHANNEL2_CTRL);
+
+		hw770_clear_vsync_interrupt(CHANNEL0_CTRL);
+		hw770_clear_vsync_interrupt(CHANNEL1_CTRL);
+		hw770_clear_vsync_interrupt(CHANNEL2_CTRL);
+	}
 }
 
 static int smi_irq_postinstall(struct drm_device *dev)
@@ -411,39 +443,63 @@ irqreturn_t smi_drm_interrupt(int irq, void *arg)
 	
 	if (sdev->specId == SPC_SM750) {
 		if (hw750_check_vsync_interrupt(0)) {
-	        /* Clear the panel VSync Interrupt */	
-			drm_handle_vblank(dev, 0);		
-			handled = 1;
+			/* Clear the panel VSync Interrupt */
 			hw750_clear_vsync_interrupt(0);
-	    }   
-		if (hw750_check_vsync_interrupt(1)) {			
-			drm_handle_vblank(dev, 1);
+			drm_handle_vblank(dev, 0);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+			smi_crtc_flip_complete(dev, 0);
+#endif
 			handled = 1;
+		}
+		if (hw750_check_vsync_interrupt(1)) {
 			hw750_clear_vsync_interrupt(1);
+			drm_handle_vblank(dev, 1);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+			smi_crtc_flip_complete(dev, 1);
+#endif
+			handled = 1;
 		}
 	} else if (sdev->specId == SPC_SM768) {
 		if (hw768_check_vsync_interrupt(0)) {
 			/* Clear the panel VSync Interrupt */
-			drm_handle_vblank(dev, 0);
-			handled = 1;
 			hw768_clear_vsync_interrupt(0);
-		}	
-		if (hw768_check_vsync_interrupt(1)) {		
-			drm_handle_vblank(dev, 1);
+			drm_handle_vblank(dev, 0);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+			smi_crtc_flip_complete(dev, 0);
+#endif
 			handled = 1;
+		}
+		if (hw768_check_vsync_interrupt(1)) {
 			hw768_clear_vsync_interrupt(1);
+			drm_handle_vblank(dev, 1);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+			smi_crtc_flip_complete(dev, 1);
+#endif
+			handled = 1;
 		}
 	} else if(sdev->specId == SPC_SM770){
 		if (hw770_check_vsync_interrupt(0)) {
-			/* Clear the panel VSync Interrupt */
-			drm_handle_vblank(dev, 0);
-			handled = 1;
 			hw770_clear_vsync_interrupt(0);
-		}
-		if (hw770_check_vsync_interrupt(1)) {
-			drm_handle_vblank(dev, 1);
+			drm_handle_vblank(dev, 0);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+			smi_crtc_flip_complete(dev, 0);
+#endif
 			handled = 1;
+		}if (hw770_check_vsync_interrupt(1)) {
 			hw770_clear_vsync_interrupt(1);
+			drm_handle_vblank(dev, 1);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+			smi_crtc_flip_complete(dev, 1);
+#endif
+			handled = 1;
+		}
+		if (hw770_check_vsync_interrupt(2)) {
+			hw770_clear_vsync_interrupt(2);
+			drm_handle_vblank(dev, 2);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+			smi_crtc_flip_complete(dev, 2);
+#endif
+			handled = 1;
 		}
 	}
 	

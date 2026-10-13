@@ -306,13 +306,13 @@ long ddk770_HDMI_HPD_Detect(hdmi_index index)
 
 	value = rxsense << 1 | hpd;
 
-	if(value == 0x02){
+	if(value == SM770_HDMI_STATUS_RXSENSE){
 		usleep_range(200000,201000);
 		hpd = phy_hot_plug_state(index);
 		rxsense = phy_rx_sense_state(index);
 		value = rxsense << 1 | hpd;
 	}
-	return hpd;
+	return value;
 }
 
 int ddk770_HDMI_Read_EDID_Basic(hdmi_index index, u8 *pEDIDBuffer, u32 bufferSize, u16* pReadSize)
@@ -569,7 +569,7 @@ long ddk770_HDMI_Read_EDID(hdmi_index index, u8 *pEDIDBuffer, u16* bufferSize)
 
     ddk770_HDMI_Check_EDID_IIC_State(index);
 
-	if(!ddk770_HDMI_HPD_Detect(index))
+	if (!(ddk770_HDMI_HPD_Detect(index) & SM770_HDMI_STATUS_HPD))
 	{
 		//not plug-in
 		// memset(pEDIDBuffer, 0, *bufferSize);
@@ -1249,7 +1249,7 @@ static int ddk770_hdmi_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 	}
 	
 	ddk770_HDMI_Check_EDID_IIC_State(index);
-	if (!ddk770_HDMI_HPD_Detect(index)) {
+	if (!(ddk770_HDMI_HPD_Detect(index) & SM770_HDMI_STATUS_HPD)) {
 		ret = -ENODEV;
 		goto end;
 	}

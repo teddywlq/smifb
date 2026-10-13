@@ -76,6 +76,8 @@ typedef enum{
     INDEX_HDMI2,
 } hdmi_index;
 
+#define SM770_HDMI_STATUS_HPD     (1U << 0)
+#define SM770_HDMI_STATUS_RXSENSE (1U << 1)
 typedef enum{
     INDEX_DP0 = 0,
     INDEX_DP1,

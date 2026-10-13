@@ -1105,7 +1105,7 @@ u8  LT8618SX_Video_Check(unsigned long width, unsigned long height)
 		{
 			smi_lt8618Msg("Video_Check = video_3840x2160_30Hz\n");
 			Video_Format=video_3840x2160_30Hz_vic205;
-			HDMI_VIC=16;
+			HDMI_VIC=95;
 			video_bt=video_3840x2160_30Hz;
 	  }
 	else if(((h_act==video_1024x768_60Hz.hact)&&
@@ -1131,19 +1131,20 @@ void LT8618SX_HDMI_TX_Digital( void )
 	u8	AVI_PB0	   = 0x00;
 	u8	AVI_PB1	   = 0x00;
 	u8	AVI_PB2	   = 0x00;
+	u8 avi_vic = HDMI_VIC == 95 ? 0 : HDMI_VIC;
 
 	AVI_PB1 = ( HDMI_Y << 5 );
 
 	AVI_PB2 = 0x2A;  // 16:9
 //	AVI_PB2 = 0x19;// 4:3
 
-	AVI_PB0 = ( ( AVI_PB1 + AVI_PB2 + HDMI_VIC ) <= 0x6f ) ? ( 0x6f - AVI_PB1 - AVI_PB2 - HDMI_VIC ) : ( 0x16f - AVI_PB1 - AVI_PB2 - HDMI_VIC );
+	AVI_PB0 = ( ( AVI_PB1 + AVI_PB2 + avi_vic ) <= 0x6f ) ? ( 0x6f - AVI_PB1 - AVI_PB2 - avi_vic ) : ( 0x16f - AVI_PB1 - AVI_PB2 - avi_vic );
 
 	lt8618_WriteI2C_Byte( 0xff, 0x84 );
 	lt8618_WriteI2C_Byte( 0x43, AVI_PB0 );    //AVI_PB0
 	lt8618_WriteI2C_Byte( 0x44, AVI_PB1 );    //AVI_PB1
 	lt8618_WriteI2C_Byte( 0x45, AVI_PB2 );    //AVI_PB2
-	lt8618_WriteI2C_Byte( 0x47, HDMI_VIC );   //AVI_PB4
+	lt8618_WriteI2C_Byte( 0x47, avi_vic );    //AVI_PB4
 
 	lt8618_WriteI2C_Byte( 0x10, 0x32 );       //data iland
 	lt8618_WriteI2C_Byte( 0x12, 0x64 );       //act_h_blank
@@ -1620,12 +1621,13 @@ void smi_lt8618Init(void)
 
 int smi_lt8618SX_Task(unsigned long width, unsigned long height)
 {
+	int ret;
 	smi_iicGpioInit(30, 31);
-	LT8618SX_Task(width, height);
+	ret = LT8618SX_Task(width, height);
 #ifdef I2CHW
     ddk768_hwI2CClose(0);
 #endif
-	return 0;
+	return ret;
 }
 void LT8618SX_Output_Mode(char AudiOn)
 {

@@ -663,6 +663,15 @@ static int smi_crtc_mode_set(struct drm_crtc *crtc,
 				hw768_enable_lvds(2);
 				EnableDoublePixel(0);
 			}
+#ifdef USE_LT8618
+			if (!sdev->smi_conn_tab[0])
+				return -ENODEV;
+			ret = hw768_lt8618TaskWork(
+				to_smi_connector(sdev->smi_conn_tab[0]),
+				logicalMode.x, logicalMode.y);
+			if (ret)
+				DRM_ERROR("LT8618 mode configuration failed: %d\n", ret);
+#endif
 		}		
 
 		
@@ -1738,6 +1747,11 @@ static enum drm_mode_status smi_connector_mode_valid(struct drm_connector *conne
 	if(connector->connector_type == DRM_MODE_CONNECTOR_DVII){
 		if(mode->clock >= 200000)
 				return MODE_NOCLOCK;
+#ifdef USE_LT8618
+		if (sdev->specId == SPC_SM768 &&
+		    lt8618_SupportModeValid(mode->hdisplay, mode->vdisplay, vrefresh))
+			return MODE_NOMODE;
+#endif
 	}
 
 
@@ -1892,9 +1906,6 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 					return connector_status_disconnected;
 			}
 
-			if (hwi2c_en)
-                ret = ddk768_edidHeaderReadMonitorExHwI2C(0);
-            else
 				ret = drm_probe_ddc(&smi_connector->adapter);
 
 			if (ret)
@@ -1921,9 +1932,6 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 					return connector_status_disconnected;
 			}
 			
-			if (hwi2c_en)
-			    ret = ddk768_edidHeaderReadMonitorExHwI2C(1);
-			else
 				ret = drm_probe_ddc(&smi_connector->adapter);	
 
 			if (ret)
@@ -2084,7 +2092,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 				return connector_status_disconnected;
 			}
 
-			if(ddk770_HDMI_HPD_Detect(0))
+			if (ddk770_HDMI_HPD_Detect(0) & SM770_HDMI_STATUS_HPD)
 			{
 			    dbg_msg("detect HDMI0 connected \n");
 				//hw770_hdmi_vga_mode(0);
@@ -2112,7 +2120,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 				return connector_status_disconnected;
 			}
 
-			if(ddk770_HDMI_HPD_Detect(1))
+			if (ddk770_HDMI_HPD_Detect(1) & SM770_HDMI_STATUS_HPD)
 			{
 			    dbg_msg("detect HDMI1 connected \n");
 				//hw770_hdmi_vga_mode(1);
@@ -2140,7 +2148,7 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 				return connector_status_disconnected;
 			}
 
-			if(ddk770_HDMI_HPD_Detect(2))
+			if (ddk770_HDMI_HPD_Detect(2) & SM770_HDMI_STATUS_HPD)
 			{
 			    dbg_msg("detect HDMI2 connected \n");
 				//hw770_hdmi_vga_mode(2);
@@ -2166,6 +2174,10 @@ static enum drm_connector_status smi_connector_detect(struct drm_connector
 static void smi_connector_destroy(struct drm_connector *connector)
 {
 	struct smi_device *sdev = connector->dev->dev_private;
+	int i;
+	for (i = 0; i < MAX_ENCODER(sdev->specId); i++)
+		if (sdev->smi_conn_tab[i] == connector)
+			sdev->smi_conn_tab[i] = NULL;
 	if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA && sdev->hdmi_edid)
 	{
 		kfree(sdev->hdmi_edid);
@@ -2222,6 +2234,7 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 	struct drm_connector *connector;
 	struct smi_connector *smi_connector;
 	struct smi_device *sdev = dev->dev_private;
+	int ret = 0;
 
 	smi_connector = kzalloc(sizeof(struct smi_connector), GFP_KERNEL);
 	if (!smi_connector)
@@ -2284,15 +2297,21 @@ static struct drm_connector *smi_connector_init(struct drm_device *dev, int inde
 
 	if (sdev->specId == SPC_SM750) 
 	{
-		hw750_AdaptI2CInit(smi_connector);
+		ret = hw750_AdaptI2CInit(smi_connector);
 	}
 	else if(sdev->specId == SPC_SM768)
 	{
-		hw768_AdaptI2CInit(smi_connector);
+		ret = hw768_AdaptI2CInit(smi_connector);
 	}
 	else if(sdev->specId == SPC_SM770)
 	{
-		hw770_AdaptI2CInit(smi_connector);
+		ret = hw770_AdaptI2CInit(smi_connector);
+	}
+	if (ret) {
+		DRM_ERROR("I2C adapter initialization failed: %d\n", ret);
+		drm_connector_cleanup(connector);
+		kfree(smi_connector);
+		return NULL;
 	}
 
 	drm_connector_helper_add(connector, &smi_vga_connector_helper_funcs);

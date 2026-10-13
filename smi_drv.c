@@ -577,7 +577,7 @@ irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id)
 		goto error;
 	}
 	monitor_status = hw770_hdmi_detect(0);
-	if(!monitor_status)
+	if (!(monitor_status & SM770_HDMI_STATUS_HPD))
 	{
 		drm_kms_helper_hotplug_event(dev);
 		return IRQ_HANDLED;
@@ -611,7 +611,8 @@ irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id)
 	}
 	hw770_set_current_pitch((disp_control_t)INDEX_HDMI0,&fb_info);
 	monitor_status = hw770_hdmi_detect(0);
-	if(monitor_status != 0x3){
+	if ((monitor_status & SM770_HDMI_STATUS_HPD) &&
+	    !(monitor_status & SM770_HDMI_STATUS_RXSENSE)) {
 		msleep(1500);
 		dbg_msg("retry set hdmi0 mode\n");
 		hw770_setMode(&logicalMode, *mode);
@@ -654,7 +655,7 @@ irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id)
 	}
 
 	monitor_status = hw770_hdmi_detect(1);
-	if(!monitor_status)
+	if (!(monitor_status & SM770_HDMI_STATUS_HPD))
 	{
 		drm_kms_helper_hotplug_event(dev);
 		return IRQ_HANDLED;
@@ -688,7 +689,8 @@ irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id)
 	}
 	hw770_set_current_pitch((disp_control_t)INDEX_HDMI1,&fb_info);
 	monitor_status = hw770_hdmi_detect(1);
-	if(monitor_status != 0x3){
+	if ((monitor_status & SM770_HDMI_STATUS_HPD) &&
+	    !(monitor_status & SM770_HDMI_STATUS_RXSENSE)) {
 		msleep(1500);
 		dbg_msg("retry set hdmi1 mode\n");
 		hw770_setMode(&logicalMode, *mode);
@@ -729,7 +731,7 @@ irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id)
 		goto error;
 	}
 	monitor_status = hw770_hdmi_detect(2);
-	if(!monitor_status)
+	if (!(monitor_status & SM770_HDMI_STATUS_HPD))
 	{
 		drm_kms_helper_hotplug_event(dev);
 		return IRQ_HANDLED;
@@ -763,7 +765,8 @@ irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id)
 	}
 	hw770_set_current_pitch((disp_control_t)INDEX_HDMI2,&fb_info);
 	monitor_status = hw770_hdmi_detect(2);
-	if(monitor_status != 0x3){	
+	if ((monitor_status & SM770_HDMI_STATUS_HPD) &&
+	    !(monitor_status & SM770_HDMI_STATUS_RXSENSE)) {
 		msleep(1500);
 		dbg_msg("retry set hdmi2 mode\n");
 		hw770_setMode(&logicalMode, *mode);

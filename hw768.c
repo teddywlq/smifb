@@ -19,6 +19,7 @@
 
 #ifdef USE_LT8618
 #include "ddk768/lt8618.h" 
+#include <linux/version.h>
 #endif
 
 #include <linux/delay.h>
@@ -200,9 +201,30 @@ void hw768_init_lt8618(void)
 {
 	smi_lt8618Init();
 }
-int hw768_lt8618TaskWork(unsigned long width, unsigned long height)
+int hw768_lt8618TaskWork(struct smi_connector *connector,
+			unsigned long width, unsigned long height)
 {
-	return smi_lt8618SX_Task(width, height);
+	unsigned long gpio_mux;
+	unsigned char i2c_ctrl;
+	int ret;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	i2c_lock_bus(&connector->adapter, I2C_LOCK_ROOT_ADAPTER);
+#else
+	i2c_lock_adapter(&connector->adapter);
+#endif
+	gpio_mux = peekRegisterDWord(GPIO_MUX);
+	i2c_ctrl = peekRegisterByte(I2C_CTRL);
+	ret = smi_lt8618SX_Task(width, height);
+	pokeRegisterByte(I2C_CTRL, FIELD_SET(i2c_ctrl, I2C_CTRL, CTRL, STOP));
+	pokeRegisterDWord(GPIO_MUX,
+		FIELD_VALUE(peekRegisterDWord(GPIO_MUX), GPIO_MUX, I2C0,
+			    FIELD_NORMALIZE(gpio_mux, GPIO_MUX_I2C0)));
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	i2c_unlock_bus(&connector->adapter, I2C_LOCK_ROOT_ADAPTER);
+#else
+	i2c_unlock_adapter(&connector->adapter);
+#endif
+	return ret;
 }
 int lt8618_SupportModeValid(unsigned short width, unsigned short height, unsigned int vrefresh)
 {
